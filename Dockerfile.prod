@@ -1,0 +1,29 @@
+# Stage 1: Build frontend
+FROM node:18-alpine AS client-builder
+WORKDIR /app
+COPY client/package*.json ./
+RUN npm ci
+COPY client/ .
+RUN npm run build
+
+# Stage 2: Build final image
+FROM node:18-alpine
+WORKDIR /app
+
+# Copy built frontend
+COPY --from=client-builder /app/dist ./client/dist
+
+# Copy backend
+COPY package*.json ./
+RUN npm ci --only=production
+COPY index.js ./
+
+# Create non-root user
+RUN addgroup -g 1001 -S nodejs && \
+    adduser -S nextuser -u 1001 && \
+    chown -R nextuser:nodejs /app
+USER nextuser
+
+EXPOSE 3000
+
+CMD ["node", "index.js"]
