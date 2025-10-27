@@ -45,7 +45,7 @@ jobs:
         with:
           file: Dockerfile.prod
           push: true
-          tags: ghcr.io/${{ github.repository_owner | lower }}/${{ github.event.repository.name }}:latest
+          tags: ghcr.io/${{ github.repository }}:latest
 
   deploy:
     needs: build-prod
@@ -54,6 +54,6 @@ jobs:
     steps:
       - name: Deploy to server (simulated)
         run: |
-          echo "Deploying fugue-dev-ops-app to Prod..."
+          echo "Deploying fugue-app to Prod"
           echo "In real setup, you'd SSH here and run:"
           echo "docker run -d -p 3000:3000 ghcr.io/${{ github.repository }}:latest"
