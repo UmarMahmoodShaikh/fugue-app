@@ -75,12 +75,12 @@ jobs:
             --platform managed \
             --region ${{ env.GCP_REGION }} \
             --allow-unauthenticated \
-            --port 3000 \
+            --port 8080 \
             --memory 512Mi \
             --cpu 1 \
             --min-instances 0 \
             --max-instances 10 \
-            --set-env-vars "PORT=3000,NODE_ENV=production"
+            --set-env-vars "NODE_ENV=production"
 
       - name: Get Service URL
         run: |
