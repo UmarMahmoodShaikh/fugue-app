@@ -43,5 +43,6 @@ client/node_modules/
 npm-debug.log
 dist/
 client/dist/
-.env
 .DS_Store
+# Environment variables file
+.env
