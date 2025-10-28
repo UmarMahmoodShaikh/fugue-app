@@ -74,18 +74,4 @@ jobs:
             --image ${{ env.GCP_REGION }}-docker.pkg.dev/${{ env.GCP_PROJECT_ID }}/${{ env.ARTIFACT_REGISTRY_REPO }}/${{ steps.repo_name.outputs.repo_lowercase }}:${{ github.sha }} \
             --platform managed \
             --region ${{ env.GCP_REGION }} \
-            --allow-unauthenticated \
-            --port 8080 \
-            --memory 512Mi \
-            --cpu 1 \
-            --min-instances 0 \
-            --max-instances 10 \
-            --set-env-vars "NODE_ENV=production"
-
-      - name: Get Service URL
-        run: |
-          echo "Service URL:"
-          gcloud run services describe ${{ steps.repo_name.outputs.repo_lowercase }} \
-            --platform managed \
-            --region ${{ env.GCP_REGION }} \
-            --format 'value(status.url)'
+            --allow-unauthenticated
