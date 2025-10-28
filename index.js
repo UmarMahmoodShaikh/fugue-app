@@ -202,7 +202,6 @@ wss.on('connection', (ws) => {
 
       let partnerWs = null;
       for (const [roomId, room] of activeRooms) {
-        console.log(`🔍 Checking room ${roomId}: user1=${room.user1.username}, user2=${room.user2.username}`);
         if (room.user1.ws === ws) {
           partnerWs = room.user2.ws;
           break;
@@ -255,36 +254,79 @@ wss.on('connection', (ws) => {
   });
 });
 
-// Serve static files in production
+// Serve static files in production ONLY if they exist
 if (process.env.NODE_ENV === 'production') {
-  app.use(express.static(path.join(__dirname, 'client/dist')));
-//  app.get('*', (req, res) => {
-//    res.sendFile(path.join(__dirname, 'client/dist/index.html'));
-//  });
-app.get('*', (req, res, next) => {
-  // Only serve HTML for non-API routes
-  if (!req.path.startsWith('/api/')) {
-    res.sendFile(path.join(__dirname, 'client/dist/index.html'));
+  const clientPath = path.join(__dirname, 'client/dist');
+
+  // Only serve static files if the directory exists
+  const fs = require('fs');
+  if (fs.existsSync(clientPath)) {
+    app.use(express.static(clientPath));
+    app.get('*', (req, res) => {
+      res.sendFile(path.join(clientPath, 'index.html'));
+    });
+    console.log('✅ Serving React client from:', clientPath);
   } else {
-    next();
+    console.log('⚠️  No React client found, serving API only');
+
+    // Serve a simple HTML page for the root route
+    app.get('/', (req, res) => {
+      res.send(`
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <title>Fugue P2P Chat</title>
+            <style>
+                body { font-family: Arial, sans-serif; margin: 40px; }
+                .container { max-width: 800px; margin: 0 auto; }
+                .status { padding: 10px; background: #f0f0f0; border-radius: 5px; }
+            </style>
+        </head>
+        <body>
+            <div class="container">
+                <h1>🚀 Fugue P2P Chat Server</h1>
+                <div class="status">
+                    <p><strong>Status:</strong> ✅ Server is running</p>
+                    <p><strong>WebSocket:</strong> Ready for connections</p>
+                    <p><strong>Port:</strong> ${process.env.PORT || 8080}</p>
+                </div>
+                <p>This is a WebSocket server for the Fugue P2P chat application.</p>
+                <p>Connect to the WebSocket endpoint to use the chat functionality.</p>
+                <p><em>No React client is deployed. This server provides the WebSocket API only.</em></p>
+            </div>
+        </body>
+        </html>
+      `);
+    });
   }
-});
-app.get('/', (req, res) => {
-  res.sendFile(path.join(__dirname, 'client/dist/index.html'));
-});
-
-app.get('/chat', (req, res) => {
-  res.sendFile(path.join(__dirname, 'client/dist/index.html'));
-});
-
+} else {
+  // Development - simple root route
+  app.get('/', (req, res) => {
+    res.send(`
+      <!DOCTYPE html>
+      <html>
+      <head>
+          <title>Fugue P2P Chat - Development</title>
+      </head>
+      <body>
+          <h1>🚀 Fugue P2P Chat Server (Development)</h1>
+          <p>WebSocket server is running on port ${process.env.PORT || 8080}</p>
+          <p>Connect to ws://localhost:${process.env.PORT || 8080} to use the WebSocket API</p>
+      </body>
+      </html>
+    `);
+  });
 }
 
-// CRITICAL: Listen on the HTTP server (not app) for WebSocket support
-//const PORT = process.env.PORT || 3000;
-//server.listen(PORT, '0.0.0.0', () => {
-//  console.log(`🚀 Fugue P2P server running on port ${PORT}`);
-//  console.log(`WebSocket server: ws://localhost:${PORT}`);
-//});
+// Health check endpoint
+app.get('/health', (req, res) => {
+  res.status(200).json({
+    status: 'healthy',
+    service: 'Fugue P2P Chat',
+    timestamp: new Date().toISOString(),
+    websocket: 'active'
+  });
+});
 
 // Use Cloud Run's PORT or default to 8080
 const PORT = process.env.PORT || 8080;
