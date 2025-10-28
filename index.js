@@ -280,7 +280,14 @@ app.get('/chat', (req, res) => {
 }
 
 // CRITICAL: Listen on the HTTP server (not app) for WebSocket support
-const PORT = process.env.PORT || 3000;
+//const PORT = process.env.PORT || 3000;
+//server.listen(PORT, '0.0.0.0', () => {
+//  console.log(`🚀 Fugue P2P server running on port ${PORT}`);
+//  console.log(`WebSocket server: ws://localhost:${PORT}`);
+//});
+
+// Use Cloud Run's PORT or default to 8080
+const PORT = process.env.PORT || 8080;
 server.listen(PORT, '0.0.0.0', () => {
   console.log(`🚀 Fugue P2P server running on port ${PORT}`);
   console.log(`WebSocket server: ws://localhost:${PORT}`);
