@@ -143,7 +143,14 @@ const path = require('path');
 
 const app = express();
 const server = http.createServer(app);
-const wss = new WebSocket.Server({ server });
+
+// WebSocket Server with proper Cloud Run configuration
+const wss = new WebSocket.Server({
+  server,
+  // Important for Cloud Run compatibility
+  perMessageDeflate: false,
+  clientTracking: true
+});
 
 const waitingUsers = [];
 const activeRooms = new Map();
@@ -152,8 +159,9 @@ function generateRoomId() {
   return 'room-' + Math.random().toString(36).substring(2, 10);
 }
 
-wss.on('connection', (ws) => {
+wss.on('connection', (ws, request) => {
   console.log('🟢 New user connected');
+  console.log('🔗 Headers:', request.headers);
 
   // Handle incoming messages
   ws.on('message', (data) => {
@@ -254,6 +262,20 @@ wss.on('connection', (ws) => {
   });
 });
 
+// Add CORS headers for WebSocket connections
+app.use((req, res, next) => {
+  res.header('Access-Control-Allow-Origin', '*');
+  res.header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+
+  // Handle preflight requests
+  if (req.method === 'OPTIONS') {
+    return res.status(200).end();
+  }
+
+  next();
+});
+
 // Serve static files in production ONLY if they exist
 if (process.env.NODE_ENV === 'production') {
   const clientPath = path.join(__dirname, 'client/dist');
@@ -280,6 +302,7 @@ if (process.env.NODE_ENV === 'production') {
                 body { font-family: Arial, sans-serif; margin: 40px; }
                 .container { max-width: 800px; margin: 0 auto; }
                 .status { padding: 10px; background: #f0f0f0; border-radius: 5px; }
+                .test-area { margin: 20px 0; padding: 15px; border: 1px solid #ccc; }
             </style>
         </head>
         <body>
@@ -290,10 +313,43 @@ if (process.env.NODE_ENV === 'production') {
                     <p><strong>WebSocket:</strong> Ready for connections</p>
                     <p><strong>Port:</strong> ${process.env.PORT || 8080}</p>
                 </div>
+
+                <div class="test-area">
+                    <h3>Test WebSocket Connection:</h3>
+                    <button onclick="testWebSocket()">Test Connection</button>
+                    <div id="ws-status"></div>
+                </div>
+
                 <p>This is a WebSocket server for the Fugue P2P chat application.</p>
                 <p>Connect to the WebSocket endpoint to use the chat functionality.</p>
                 <p><em>No React client is deployed. This server provides the WebSocket API only.</em></p>
             </div>
+
+            <script>
+                function testWebSocket() {
+                    const statusDiv = document.getElementById('ws-status');
+                    statusDiv.innerHTML = 'Connecting...';
+
+                    const ws = new WebSocket('wss://' + window.location.host);
+
+                    ws.onopen = () => {
+                        statusDiv.innerHTML = '✅ Connected! Sending test message...';
+                        ws.send(JSON.stringify({ type: 'join', username: 'tester' }));
+                    };
+
+                    ws.onmessage = (event) => {
+                        statusDiv.innerHTML += '<br>📨 Received: ' + event.data;
+                    };
+
+                    ws.onerror = (error) => {
+                        statusDiv.innerHTML = '❌ Connection failed: ' + error;
+                    };
+
+                    ws.onclose = () => {
+                        statusDiv.innerHTML += '<br>🔌 Connection closed';
+                    };
+                }
+            </script>
         </body>
         </html>
       `);
@@ -324,13 +380,26 @@ app.get('/health', (req, res) => {
     status: 'healthy',
     service: 'Fugue P2P Chat',
     timestamp: new Date().toISOString(),
-    websocket: 'active'
+    websocket: 'active',
+    environment: process.env.NODE_ENV || 'development'
   });
 });
 
-// Use Cloud Run's PORT or default to 8080
+// WebSocket test endpoint
+app.get('/websocket-info', (req, res) => {
+  res.json({
+    websocket_url: 'wss://' + req.get('host'),
+    supported_actions: ['join', 'chat'],
+    active_connections: wss.clients.size,
+    waiting_users: waitingUsers.length,
+    active_rooms: activeRooms.size
+  });
+});
+
+// Use Cloud Run's PORT
 const PORT = process.env.PORT || 8080;
 server.listen(PORT, '0.0.0.0', () => {
   console.log(`🚀 Fugue P2P server running on port ${PORT}`);
   console.log(`WebSocket server: ws://localhost:${PORT}`);
+  console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
 });
