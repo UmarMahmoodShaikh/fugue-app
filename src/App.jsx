@@ -1,13 +1,6 @@
 // client/src/App.jsx
 import { useState, useEffect, useRef } from 'react';
 import { Users, LogOut, Send, ArrowLeft } from 'lucide-react';
-// Instead of:
-// ws.current = new WebSocket('ws://localhost:3000');
-
-// Use:
-const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-// ws.current = new WebSocket(`${protocol}//${window.location.host}/ws`);
-
 
 export default function App() {
   const [step, setStep] = useState('join'); // 'join', 'waiting', 'chatting', 'exited'
@@ -25,9 +18,12 @@ export default function App() {
 
   // WebSocket connection — CONNECT ONCE
   useEffect(() => {
-    // Connect to backend on the same host as the frontend
-    const wsHost = window.location.hostname;
-    ws.current = new WebSocket(`ws://${wsHost}:3000`);
+    // Use wss:// for HTTPS sites, ws:// for HTTP sites
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const wsUrl = `${protocol}//${window.location.host}`;
+
+    console.log('Connecting to WebSocket:', wsUrl);
+    ws.current = new WebSocket(wsUrl);
 
     ws.current.onmessage = (event) => {
       const msg = JSON.parse(event.data);
@@ -58,7 +54,16 @@ export default function App() {
       }
     };
 
+    ws.current.onopen = () => {
+      console.log('WebSocket connected successfully');
+    };
+
+    ws.current.onerror = (error) => {
+      console.error('WebSocket error:', error);
+    };
+
     ws.current.onclose = () => {
+      console.log('WebSocket closed');
       if (step === 'chatting' || step === 'waiting') {
         setStep('exited');
         setTimeout(() => {
@@ -69,7 +74,9 @@ export default function App() {
     };
 
     return () => {
-      ws.current.close();
+      if (ws.current) {
+        ws.current.close();
+      }
     };
   }, []); // 👈 EMPTY DEPENDENCY ARRAY — CRITICAL!
 
@@ -83,18 +90,30 @@ export default function App() {
   const handleJoin = (e) => {
     e.preventDefault();
     if (!username.trim()) return;
-    ws.current.send(JSON.stringify({ type: 'join', username: username.trim() }));
+
+    // Check if WebSocket is ready
+    if (ws.current && ws.current.readyState === WebSocket.OPEN) {
+      ws.current.send(JSON.stringify({ type: 'join', username: username.trim() }));
+    } else {
+      alert('Connection not ready. Please wait...');
+    }
   };
 
   const handleSend = () => {
     if (!input.trim() || step !== 'chatting') return;
-    ws.current.send(JSON.stringify({ type: 'chat', text: input.trim() }));
-    setMessages(prev => [...prev, {
-      text: input.trim(),
-      sender: username,
-      self: true
-    }]);
-    setInput('');
+
+    // Check if WebSocket is ready
+    if (ws.current && ws.current.readyState === WebSocket.OPEN) {
+      ws.current.send(JSON.stringify({ type: 'chat', text: input.trim() }));
+      setMessages(prev => [...prev, {
+        text: input.trim(),
+        sender: username,
+        self: true
+      }]);
+      setInput('');
+    } else {
+      alert('Connection lost. Please refresh the page.');
+    }
   };
 
   const handleLogout = () => {
@@ -102,7 +121,9 @@ export default function App() {
     setStep('exited');
     // Then close and reset
     setTimeout(() => {
-      ws.current.close();
+      if (ws.current) {
+        ws.current.close();
+      }
       resetAndGoToJoin();
     }, 800);
   };
