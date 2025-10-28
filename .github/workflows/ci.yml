@@ -19,8 +19,20 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 18
-      - run: npm ci
-      - run: npm ci --prefix client
+      
+      - name: Install backend dependencies
+        run: npm ci
+      
+      - name: Install and build frontend
+        run: |
+          cd client
+          npm ci
+          npm run build
+      
+      - name: Verify build output
+        run: |
+          ls -la client/dist/
+          echo "✅ Frontend build successful"
 
   build-dev:
     needs: test
@@ -74,4 +86,34 @@ jobs:
             --image ${{ env.GCP_REGION }}-docker.pkg.dev/${{ env.GCP_PROJECT_ID }}/${{ env.ARTIFACT_REGISTRY_REPO }}/${{ steps.repo_name.outputs.repo_lowercase }}:${{ github.sha }} \
             --platform managed \
             --region ${{ env.GCP_REGION }} \
-            --allow-unauthenticated
+            --allow-unauthenticated \
+            --port 8080 \
+            --memory 512Mi \
+            --cpu 1 \
+            --min-instances 1 \
+            --max-instances 10 \
+            --set-env-vars "NODE_ENV=production" \
+            --timeout 3600 \
+            --session-affinity
+
+      - name: Wait for deployment
+        run: sleep 30
+
+      - name: Test deployment
+        run: |
+          SERVICE_URL=$(gcloud run services describe ${{ steps.repo_name.outputs.repo_lowercase }} \
+            --platform managed \
+            --region ${{ env.GCP_REGION }} \
+            --format 'value(status.url)')
+          echo "Testing service at: $SERVICE_URL"
+          curl -f "$SERVICE_URL"
+          echo ""
+          curl -f "$SERVICE_URL/health"
+
+      - name: Get Service URL
+        run: |
+          echo "Service URL:"
+          gcloud run services describe ${{ steps.repo_name.outputs.repo_lowercase }} \
+            --platform managed \
+            --region ${{ env.GCP_REGION }} \
+            --format 'value(status.url)'
