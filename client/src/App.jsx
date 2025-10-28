@@ -27,7 +27,9 @@ export default function App() {
   useEffect(() => {
     // Connect to backend on the same host as the frontend
     const wsHost = window.location.hostname;
-    ws.current = new WebSocket(`ws://${wsHost}:3000`);
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const wsUrl = `${protocol}//${window.location.host}`; // This includes the correct port
+    ws.current = new WebSocket(wsUrl);
 
     ws.current.onmessage = (event) => {
       const msg = JSON.parse(event.data);
