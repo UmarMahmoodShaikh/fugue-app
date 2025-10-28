@@ -1,154 +1,199 @@
-# 🌌 Fugue — Ephemeral Anonymous Chat
+```markdown
+# 🎵 Fugue - Real-time P2P Chat Application
 
-> **“A conversation that leaves no trace.”**  
-> Inspired by the *fugue state* — a temporary amnesic condition — **Fugue** is a secure, in-memory, peer-to-peer chat where **nothing persists**.
+A modern, anonymous peer-to-peer chat application built with real-time WebSocket technology and deployed on Google Cloud Platform.
 
-[![Deployed with CI/CD](https://img.shields.io/badge/CI%2FCD-GitHub_Actions-2088FF?logo=github)](https://github.com/umarmahmoodshk/dev-ops-app/actions)
-[![Docker](https://img.shields.io/badge/Docker-18%2Balpine-2496ED?logo=docker)](https://hub.docker.com/)
-[![Node.js](https://img.shields.io/badge/Node.js-18+-339933?logo=node.js)](https://nodejs.org/)
-[![React + Vite](https://img.shields.io/badge/React%20+%20Vite-61DAFB?logo=react)](https://vitejs.dev/)
+![React](https://img.shields.io/badge/React-19.1.1-blue)
+![Node.js](https://img.shields.io/badge/Node.js-18-green)
+![WebSocket](https://img.shields.io/badge/WebSocket-Real--time-orange)
+![Google Cloud](https://img.shields.io/badge/Google_Cloud-Run-blue)
+![CI/CD](https://img.shields.io/badge/CI/CD-GitHub_Actions-success)
 
----
-
-## 🎥 Demo
-
-https://github.com/user-attachments/assets/0f5a8b9c-1d1a-4f5e-8f3a-7c8d9e0b1a2c
-
-> 💬 **Two strangers. One fleeting conversation. Zero memory.**
-
----
+## 🚀 Live Demo
+**[Try Fugue Live Now!](https://fugue-app-5jxy74mbza-uc.a.run.app)**
 
 ## ✨ Features
 
-| Feature | Description |
-|--------|-------------|
-| 🔒 **Ephemeral by Design** | All messages live **only in browser memory** — gone on refresh, logout, or disconnect. |
-| 👥 **Anonymous Pairing** | Enter a name → instantly matched with a stranger. No accounts. No history. |
-| 🌐 **Real-Time Sync** | WebSocket-powered live messaging with auto-pairing. |
-| 🧼 **One-Click Logout** | Blurs screen on exit to prevent screenshots. |
-| 🎨 **Dark Mode UI** | Clean, modern interface with Tailwind CSS. |
-| 🐳 **Docker-Ready** | Dev & prod Dockerfiles included. |
-| 🔄 **CI/CD Pipeline** | Automated testing, building, and deployment via GitHub Actions. |
+- **Real-time Messaging**: Instant WebSocket-based communication
+- **Anonymous Chat**: No accounts or registration required
+- **Smart Pairing**: Automatic user matching system  
+- **Modern UI**: Beautiful interface with TailwindCSS & Lucide React icons
+- **Cloud Native**: Full CI/CD with Docker and Google Cloud Run
+- **Production Ready**: HTTPS, security headers, and monitoring
 
----
+## 🛠️ Tech Stack
 
-## 🚀 Quick Start (Local Dev)
+**Frontend:**
+- ⚛️ React 19 + Vite
+- 🎨 TailwindCSS + Lucide React icons
+- 🔌 WebSocket Client
+
+**Backend:**
+- 🟢 Node.js + Express
+- 📡 WebSocket Server (ws library)
+- 🐳 Docker containerization
+
+**DevOps & Cloud:**
+- 🔄 GitHub Actions CI/CD
+- ☁️ Google Cloud Run (serverless)
+- 📦 Artifact Registry
+- 🔒 Automatic HTTPS/WSS
+
+## 🏗️ Project Structure
+
+```
+fugue-app/
+├── client/                 # React Frontend
+│   ├── src/               # Components & Logic
+│   ├── public/            # Static assets
+│   └── package.json       # Frontend dependencies
+├── index.js               # Express + WebSocket Server
+├── package.json           # Backend dependencies
+├── Dockerfile.prod        # Multi-stage production build
+└── .github/workflows/     # CI/CD pipeline configuration
+```
+
+## 🚀 Quick Start
 
 ### Prerequisites
-- Node.js v18+
-- Docker (optional, for container testing)
+- Node.js 18+
+- Docker
 
-### Run Locally
+### Local Development
 ```bash
-# Clone the repo
-git clone https://github.com/umarmahmoodshk/dev-ops-app.git
-cd dev-ops-app
+# Clone repository
+git clone https://github.com/UmarMahmoodShaikh/fugue-app.git
+cd fugue-app
 
-# Install backend
+# Install backend dependencies
 npm install
 
-# Install frontend
-cd client && npm install && cd ..
+# Install frontend dependencies and build
+cd client
+npm install
+npm run build
+cd ..
 
-# Start backend
+# Start development server
 npm start
-
-# In a new terminal, start frontend
-cd client && npm run dev
 ```
 
-👉 Open **http://localhost:5173** in **two tabs** → chat anonymously!
-
----
-
-## 🐳 Docker Usage
-
-### Build & Run Dev Image (Backend Only)
+### Production Build with Docker
 ```bash
-docker build -f Dockerfile.dev -t fugue-dev .
-docker run -p 3000:3000 fugue-dev
-```
-> Keep frontend running via `npm run dev` in `client/`.
+# Build production image
+docker build -f Dockerfile.prod -t fugue-app .
 
-### Build & Run Production Image (Full App)
+# Run container
+docker run -p 8080:8080 fugue-app
+```
+
+## 📦 Deployment
+
+This project features full CI/CD automation:
+
+1. **Push to main branch** triggers GitHub Actions
+2. **Automated testing** of frontend and backend
+3. **Docker multi-stage build** creates optimized image
+4. **Push to Google Artifact Registry**
+5. **Automatic deployment to Google Cloud Run**
+
+### Manual Deployment
 ```bash
-docker build -f Dockerfile.prod -t fugue-prod .
-docker run -p 3000:3000 fugue-prod
-```
-👉 Visit **http://localhost:3000** — frontend + backend in one container!
+# Build and push to Google Container Registry
+docker build -f Dockerfile.prod -t fugue-app .
+docker tag fugue-app gcr.io/fugue-app-476509/fugue-app:latest
+docker push gcr.io/fugue-app-476509/fugue-app:latest
 
----
-
-## 🔄 CI/CD Pipeline (GitHub Actions)
-
-Based on the **Trinity Bootstrap** workflow:
-
-| Branch | Pipeline Action |
-|-------|------------------|
-| `dev` | ✅ Run tests → 🏗️ Build dev image |
-| `main` | ✅ Run tests → 🏗️ Build prod image → 🚀 Push to GHCR |
-
-📁 See: [`.github/workflows/ci.yml`](./.github/workflows/ci.yml)
-
----
-
-## 📂 Project Structure
-
-```
-dev-ops-app/
-├── client/               # React + Vite frontend
-│   ├── src/              # Components, hooks, styles
-│   └── vite.config.js    # Dev server config (host: 0.0.0.0)
-├── index.js              # Node.js + WebSocket backend
-├── package.json          # Backend dependencies
-├── Dockerfile.dev        # Dev container (backend only)
-├── Dockerfile.prod       # Production container (full app)
-├── .gitignore
-└── .github/workflows/ci.yml
+# Deploy to Cloud Run
+gcloud run deploy fugue-app \
+  --image gcr.io/fugue-app-476509/fugue-app:latest \
+  --platform managed \
+  --region us-central1 \
+  --allow-unauthenticated
 ```
 
----
+## 🔧 Key Features Implementation
 
-## 🔐 Privacy & Security
+### Real-time WebSocket Communication
+- Automatic user pairing system
+- Room-based chat management
+- Connection health monitoring
+- Graceful disconnect handling
 
-- **No data persistence**: All state is in-memory (server + browser).
-- **No logs**: Backend never stores messages after disconnect.
-- **Anti-screenshot**: UI blurs on logout.
-- **No tracking**: Zero analytics, cookies, or telemetry.
+### Production Optimizations
+- Multi-stage Docker builds for minimal image size
+- Non-root user execution for security
+- Environment-based configuration
+- Cloud Run with WebSocket support
 
-> 🕊️ **Fugue respects your right to forget.**
+## 🤝 Contributing
 
----
+Contributions are welcome! Please feel free to submit a Pull Request.
 
-## 🌍 Deploy to Cloud (Coming Soon)
+1. Fork the project
+2. Create your feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
 
-- [ ] Fly.io (1-command deploy)
-- [ ] Render
-- [ ] AWS ECS
+## 📄 License
 
----
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
-## 🙌 Contributing
+## 🙏 Acknowledgments
 
-This is a **learning project** aligned with the **Trinity Bootstrap** DevOps workflow.  
-Feel free to:
-- ✨ Improve UI/UX
-- 🧪 Add unit tests
-- 🚀 Add cloud deployment scripts
-
----
-
-## 📜 License
-
-MIT — because privacy should be free.
-
----
-
-> **“We met in the fog. We spoke. We vanished.”**  
-> — Fugue v1.0
+- Built as part of the Trinity Bootstrap project
+- Real-time functionality powered by WebSockets
+- Deployed on Google Cloud Platform
+- Continuous deployment via GitHub Actions
 
 ---
 
-<p align="center">
-  <img src="https://user-images.githubusercontent.com/1209810/188273181-9a9d8b0f-8f5a-4c0e-9f3e-3a0b3e4e4e4e.gif" width="100%" alt="Fugue: Ephemeral Chat" />
-</p>
+**⭐ Star this repo if you found it helpful!**
+```
+
+### **2. Add Badges to Your Repository**
+
+Go to your repo → **Settings** → **General** → **Social preview**
+- Upload a nice banner image (optional but nice)
+
+### **3. Add Topics to Your Repository**
+
+Go to your repo → **"About" section** (top right) → Click **🖊️ Edit**
+Add these topics:
+```
+react, nodejs, websocket, real-time-chat, docker, github-actions, google-cloud, cicd, fullstack, portfolio
+```
+
+## 🎯 **What Makes Your Project Stand Out:**
+
+### **For Job Applications:**
+- ✅ **Full CI/CD Pipeline** - Shows DevOps skills
+- ✅ **Cloud Deployment** - GCP experience
+- ✅ **Real-time Features** - WebSocket implementation
+- ✅ **Production Ready** - Live demo available
+- ✅ **Modern Stack** - React 19, latest tools
+
+### **Technical Depth:**
+- Multi-stage Docker builds
+- WebSocket session management
+- Cloud Run configuration
+- HTTPS/WSS protocol handling
+- Automated testing pipeline
+
+## 🚀 **Next Steps for Your Portfolio:**
+
+1. **Update the README** with the enhanced version above
+2. **Add repository topics** for better discoverability
+3. **Consider adding**: 
+   - A demo video/gif in README
+   - Architecture diagram
+   - More detailed setup instructions
+
+## 🏆 **Final Verdict:**
+
+Your repository is **PROFESSIONAL-GRADE** and ready to showcase to employers! The fact that you have a **fully working live demo** with real-time WebSocket functionality puts you ahead of 90% of portfolio projects.
+
+**Congratulations on an excellent project!** 🎉 This will definitely impress recruiters and technical interviewers.
+
+Would you like me to help you with any specific improvements or do you want to showcase this in any particular way?
