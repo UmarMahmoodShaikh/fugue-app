@@ -6,6 +6,11 @@ on:
   pull_request:
     branches: [ main ]
 
+env:
+  GCP_PROJECT_ID: 'fugue-app-476509'
+  GCP_REGION: 'us-central1'
+  ARTIFACT_REGISTRY_REPO: 'fugue-app'
+
 jobs:
   test:
     runs-on: ubuntu-latest
@@ -44,8 +49,8 @@ jobs:
       - name: Set up Cloud SDK
         uses: google-github-actions/setup-gcloud@v2
 
-      - name: Configure Docker for GCP
-        run: gcloud auth configure-docker
+      - name: Configure Docker for Artifact Registry
+        run: gcloud auth configure-docker ${{ env.GCP_REGION }}-docker.pkg.dev
 
       - name: Convert repository name to lowercase
         id: repo_name
@@ -54,32 +59,33 @@ jobs:
       - name: Build Docker image
         run: |
           docker build -f Dockerfile.prod \
-            -t gcr.io/${{ secrets.GCP_PROJECT_ID }}/${{ steps.repo_name.outputs.repo_lowercase }}:${{ github.sha }} \
-            -t gcr.io/${{ secrets.GCP_PROJECT_ID }}/${{ steps.repo_name.outputs.repo_lowercase }}:latest \
+            -t ${{ env.GCP_REGION }}-docker.pkg.dev/${{ env.GCP_PROJECT_ID }}/${{ env.ARTIFACT_REGISTRY_REPO }}/${{ steps.repo_name.outputs.repo_lowercase }}:${{ github.sha }} \
+            -t ${{ env.GCP_REGION }}-docker.pkg.dev/${{ env.GCP_PROJECT_ID }}/${{ env.ARTIFACT_REGISTRY_REPO }}/${{ steps.repo_name.outputs.repo_lowercase }}:latest \
             .
 
-      - name: Push Docker image to GCR
+      - name: Push Docker image to Artifact Registry
         run: |
-          docker push gcr.io/${{ secrets.GCP_PROJECT_ID }}/${{ steps.repo_name.outputs.repo_lowercase }}:${{ github.sha }}
-          docker push gcr.io/${{ secrets.GCP_PROJECT_ID }}/${{ steps.repo_name.outputs.repo_lowercase }}:latest
+          docker push ${{ env.GCP_REGION }}-docker.pkg.dev/${{ env.GCP_PROJECT_ID }}/${{ env.ARTIFACT_REGISTRY_REPO }}/${{ steps.repo_name.outputs.repo_lowercase }}:${{ github.sha }}
+          docker push ${{ env.GCP_REGION }}-docker.pkg.dev/${{ env.GCP_PROJECT_ID }}/${{ env.ARTIFACT_REGISTRY_REPO }}/${{ steps.repo_name.outputs.repo_lowercase }}:latest
 
       - name: Deploy to Cloud Run
         run: |
           gcloud run deploy ${{ steps.repo_name.outputs.repo_lowercase }} \
-            --image gcr.io/${{ secrets.GCP_PROJECT_ID }}/${{ steps.repo_name.outputs.repo_lowercase }}:${{ github.sha }} \
+            --image ${{ env.GCP_REGION }}-docker.pkg.dev/${{ env.GCP_PROJECT_ID }}/${{ env.ARTIFACT_REGISTRY_REPO }}/${{ steps.repo_name.outputs.repo_lowercase }}:${{ github.sha }} \
             --platform managed \
-            --region ${{ secrets.GCP_REGION }} \
+            --region ${{ env.GCP_REGION }} \
             --allow-unauthenticated \
             --port 3000 \
             --memory 512Mi \
             --cpu 1 \
             --min-instances 0 \
-            --max-instances 10
+            --max-instances 10 \
+            --set-env-vars "PORT=3000,NODE_ENV=production"
 
       - name: Get Service URL
         run: |
           echo "Service URL:"
           gcloud run services describe ${{ steps.repo_name.outputs.repo_lowercase }} \
             --platform managed \
-            --region ${{ secrets.GCP_REGION }} \
+            --region ${{ env.GCP_REGION }} \
             --format 'value(status.url)'
