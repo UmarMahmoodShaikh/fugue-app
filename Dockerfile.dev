@@ -13,8 +13,15 @@ RUN npm ci --prefix client
 # Copy all source
 COPY . .
 
+# Copy entrypoint and make it executable
+COPY entrypoint.sh /usr/local/bin/entrypoint.sh
+RUN chmod +x /usr/local/bin/entrypoint.sh
+
 # Expose backend port
 EXPOSE 3000
+
+# Use entrypoint to set env/defaults and exec the final command
+ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
 
 # Run in dev mode (no build)
 CMD ["npm", "run", "dev"]

@@ -5,7 +5,11 @@
   "scripts": {
     "start": "node index.js",
     "dev": "node index.js",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "node ./test/backend.test.js",
+    "test:api": "node ./test/api.test.js",
+    "test:websocket": "node ./test/websocket.test.js",
+    "test:performance": "node ./test/performance.test.js",
+    "test:all": "npm test && npm run test:api && npm run test:websocket"
   },
   "keywords": [],
   "author": "",
