@@ -1,258 +1,540 @@
-//// server/index.js
-//const express = require('express');
-//const http = require('http');
-//const WebSocket = require('ws');
-//
-//const app = express();
-//const server = http.createServer(app);
-//const wss = new WebSocket.Server({ server });
-//
-//const waitingUsers = [];
-//const activeRooms = new Map();
-//const path = require('path');
-//
-//function generateRoomId() {
-//  return 'room-' + Math.random().toString(36).substring(2, 10);
-//}
-//
-//wss.on('connection', (ws) => {
-//  console.log('🟢 New user connected');
-//
-//  // Handle incoming messages
-//  ws.on('message', (data) => {
-//    let msg;
-//    try {
-//      msg = JSON.parse(data);
-//    } catch (e) {
-//      console.warn('⚠️ Invalid JSON received');
-//      return;
-//    }
-//
-//    if (msg.type === 'join' && typeof msg.username === 'string') {
-//      const username = msg.username.trim();
-//      if (!username) {
-//        ws.send(JSON.stringify({ type: 'error', message: 'Username required' }));
-//        return;
-//      }
-//
-//      ws.username = username;
-//      waitingUsers.push({ ws, username });
-//      console.log(`👤 "${username}" joined waiting room (total: ${waitingUsers.length})`);
-//
-//      if (waitingUsers.length >= 2) {
-//        const user1 = waitingUsers.shift();
-//        const user2 = waitingUsers.shift();
-//        const roomId = generateRoomId();
-//
-//        activeRooms.set(roomId, { user1, user2 });
-//
-//        user1.ws.send(JSON.stringify({ type: 'paired', partner: user2.username }));
-//        user2.ws.send(JSON.stringify({ type: 'paired', partner: user1.username }));
-//
-//        console.log(`🔗 Paired "${user1.username}" ↔ "${user2.username}" in ${roomId}`);
-//      } else {
-//        ws.send(JSON.stringify({ type: 'waiting' }));
-//      }
-//    }
-//
-//    else if (msg.type === 'chat' && typeof msg.text === 'string') {
-//      if (!ws.username) {
-//        ws.send(JSON.stringify({ type: 'error', message: 'Join first' }));
-//        return;
-//      }
-//
-//      // 🔍 DEBUG: Log incoming message
-//      console.log(`📨 Message from ${ws.username}: "${msg.text}"`);
-//
-//      let partnerWs = null;
-//      for (const [roomId, room] of activeRooms) {
-//        console.log(`🔍 Checking room ${roomId}: user1=${room.user1.username}, user2=${room.user2.username}`);
-//        if (room.user1.ws === ws) {
-//          partnerWs = room.user2.ws;
-//          break;
-//        }
-//        if (room.user2.ws === ws) {
-//          partnerWs = room.user1.ws;
-//          break;
-//        }
-//      }
-//
-//      if (partnerWs && partnerWs.readyState === WebSocket.OPEN) {
-//        console.log(`✅ Forwarding to ${partnerWs.username}`);
-//        partnerWs.send(JSON.stringify({
-//          type: 'chat',
-//          from: ws.username,
-//          text: msg.text.trim()
-//        }));
-//      } else {
-//        console.log(`❌ NO PARTNER FOUND for ${ws.username}`);
-//      }
-//    }
-//  }); // 👈 Closes ws.on('message')
-//
-//  // ✅ NOW CORRECTLY OUTSIDE message handler
-//  ws.on('close', () => {
-//    console.log('🔴 User disconnected');
-//
-//    const waitingIndex = waitingUsers.findIndex(u => u.ws === ws);
-//    if (waitingIndex !== -1) {
-//      const removed = waitingUsers.splice(waitingIndex, 1)[0];
-//      console.log(`🗑️ Removed "${removed.username}" from waiting queue`);
-//    }
-//
-//    for (const [roomId, room] of activeRooms) {
-//      if (room.user1.ws === ws || room.user2.ws === ws) {
-//        const partner = room.user1.ws === ws ? room.user2 : room.user1;
-//        console.log(`💥 Room ${roomId} destroyed — "${ws.username}" left`);
-//
-//        if (partner.ws.readyState === WebSocket.OPEN) {
-//          partner.ws.send(JSON.stringify({ type: 'partner-left' }));
-//        }
-//
-//        activeRooms.delete(roomId);
-//        break;
-//      }
-//    }
-//  });
-//
-//  ws.on('error', (err) => {
-//    console.error('WebSocket error:', err);
-//  });
-//});
-//
-//if (process.env.NODE_ENV === 'production') {
-//  app.use(express.static(path.join(__dirname, 'client/dist')));
-//  app.get('*', (req, res) => {
-//    res.sendFile(path.join(__dirname, 'client/dist/index.html'));
-//  });
-//}
-//
-////const PORT = process.env.PORT || 3000;
-////server.listen(PORT, '0.0.0.0', () => {
-////  console.log(`🚀 Fugue P2P server running on ws://localhost:${PORT}`);
-////});
-//const PORT = process.env.PORT || 3000;
-//app.listen(PORT, '0.0.0.0', () => {
-//  console.log(`Server running on port ${PORT}`);
-//});
-// server/index.js
+require('dotenv').config();
+
 const express = require('express');
 const http = require('http');
 const WebSocket = require('ws');
+const session = require('express-session');
+const PgSession = require('connect-pg-simple')(session);
 const path = require('path');
+const fs = require('fs');
+
+const CLIENT_DIST_PATH = path.join(__dirname, 'client/dist');
+const CLIENT_INDEX_PATH = path.join(CLIENT_DIST_PATH, 'index.html');
+const HAS_CLIENT_BUILD = fs.existsSync(CLIENT_INDEX_PATH);
+
+const {
+  pool,
+  ensureSchema,
+  createUser,
+  findUserByUsername,
+  findUserById,
+  verifyPassword,
+  listInterests,
+  getUserInterests,
+  replaceUserInterests
+} = require('./db');
 
 const app = express();
 const server = http.createServer(app);
 
-// WebSocket Server with proper Cloud Run configuration
-const wss = new WebSocket.Server({
-  server,
-  // Important for Cloud Run compatibility
-  perMessageDeflate: false,
-  clientTracking: true
-});
-
-const waitingUsers = [];
-const activeRooms = new Map();
-
-function generateRoomId() {
-  return 'room-' + Math.random().toString(36).substring(2, 10);
+if (process.env.NODE_ENV === 'production') {
+  app.set('trust proxy', 1);
 }
 
-wss.on('connection', (ws, request) => {
-  console.log('🟢 New user connected');
-  console.log('🔗 Headers:', request.headers);
+const sessionMiddleware = session({
+  store: new PgSession({
+    pool,
+    tableName: 'session'
+  }),
+  secret: process.env.SESSION_SECRET || 'dev-session-secret',
+  resave: false,
+  saveUninitialized: false,
+  cookie: {
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+    httpOnly: true,
+    maxAge: 7 * 24 * 60 * 60 * 1000
+  }
+});
 
-  // Handle incoming messages
-  ws.on('message', (data) => {
-    let msg;
-    try {
-      msg = JSON.parse(data);
-    } catch (e) {
-      console.warn('⚠️ Invalid JSON received');
+app.use(express.json());
+
+app.use((req, res, next) => {
+  const origin = req.headers.origin;
+  if (origin) {
+    res.header('Access-Control-Allow-Origin', origin);
+    res.header('Vary', 'Origin');
+  }
+  res.header('Access-Control-Allow-Credentials', 'true');
+  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+
+  if (req.method === 'OPTIONS') {
+    return res.status(204).end();
+  }
+
+  next();
+});
+
+app.use(sessionMiddleware);
+
+const interestCache = new Map();
+
+async function refreshInterestCache() {
+  const interests = await listInterests();
+  interestCache.clear();
+  interests.forEach((interest) => {
+    interestCache.set(interest.id, interest.name);
+  });
+}
+
+function sanitizeUsername(username) {
+  return String(username || '').trim().toLowerCase();
+}
+
+function safeUserPayload(user) {
+  if (!user) return null;
+  return { id: user.id, username: user.username };
+}
+
+app.post('/api/signup', async (req, res) => {
+  try {
+    const usernameRaw = req.body?.username;
+    const password = req.body?.password;
+
+    if (!usernameRaw || !password) {
+      return res.status(400).json({ error: 'Username and password are required.' });
+    }
+
+    const username = sanitizeUsername(usernameRaw);
+    if (username.length < 3 || username.length > 32) {
+      return res.status(400).json({ error: 'Username must be between 3 and 32 characters.' });
+    }
+
+    if (password.length < 6) {
+      return res.status(400).json({ error: 'Password must be at least 6 characters long.' });
+    }
+
+    const existing = await findUserByUsername(username);
+    if (existing) {
+      return res.status(409).json({ error: 'Username already taken.' });
+    }
+
+    const user = await createUser(username, password);
+    req.session.userId = user.id;
+    const interests = await getUserInterests(user.id);
+
+    res.status(201).json({
+      user: safeUserPayload(user),
+      interests
+    });
+  } catch (error) {
+    console.error('Signup error:', error);
+    res.status(500).json({ error: 'Unable to complete signup right now.' });
+  }
+});
+
+app.get('/api/signup', (req, res) => {
+  res.status(405).json({
+    error: 'Use POST /api/signup with JSON body {"username","password"} to create an account.'
+  });
+});
+
+app.post('/api/login', async (req, res) => {
+  try {
+    const usernameRaw = req.body?.username;
+    const password = req.body?.password;
+
+    if (!usernameRaw || !password) {
+      return res.status(400).json({ error: 'Username and password are required.' });
+    }
+
+    const username = sanitizeUsername(usernameRaw);
+    const user = await findUserByUsername(username);
+
+    const valid = await verifyPassword(user, password);
+    if (!valid) {
+      return res.status(401).json({ error: 'Invalid credentials.' });
+    }
+
+    req.session.userId = user.id;
+    const interests = await getUserInterests(user.id);
+
+    res.json({
+      user: safeUserPayload(user),
+      interests
+    });
+  } catch (error) {
+    console.error('Login error:', error);
+    res.status(500).json({ error: 'Unable to login right now.' });
+  }
+});
+
+app.get('/api/login', (req, res) => {
+  res.status(405).json({
+    error: 'Use POST /api/login with JSON body {"username","password"} to sign in.'
+  });
+});
+
+app.post('/api/logout', (req, res) => {
+  if (!req.session) {
+    return res.status(200).json({ ok: true });
+  }
+
+  req.session.destroy((err) => {
+    if (err) {
+      console.error('Failed to destroy session', err);
+      return res.status(500).json({ error: 'Failed to logout.' });
+    }
+    res.clearCookie('connect.sid');
+    res.status(200).json({ ok: true });
+  });
+});
+
+app.get('/api/me', async (req, res) => {
+  try {
+    if (!req.session?.userId) {
+      return res.status(401).json({ error: 'Not authenticated' });
+    }
+    const user = await findUserById(req.session.userId);
+    if (!user) {
+      return res.status(401).json({ error: 'Not authenticated' });
+    }
+    const interests = await getUserInterests(user.id);
+    res.json({
+      user: safeUserPayload(user),
+      interests
+    });
+  } catch (error) {
+    console.error('Fetch session user error:', error);
+    res.status(500).json({ error: 'Unable to load user session.' });
+  }
+});
+
+app.get('/api/interests', async (req, res) => {
+  try {
+    const interests = await listInterests();
+    res.json({ interests });
+  } catch (error) {
+    console.error('List interests error:', error);
+    res.status(500).json({ error: 'Unable to load interests.' });
+  }
+});
+
+app.post('/api/user/interests', async (req, res) => {
+  try {
+    if (!req.session?.userId) {
+      return res.status(401).json({ error: 'Not authenticated' });
+    }
+    const interestIds = Array.isArray(req.body?.interestIds) ? req.body.interestIds : [];
+    await replaceUserInterests(req.session.userId, interestIds);
+    const updated = await getUserInterests(req.session.userId);
+    res.json({ interests: updated });
+  } catch (error) {
+    console.error('Update interests error:', error);
+    res.status(500).json({ error: 'Unable to update interests.' });
+  }
+});
+
+const waitingByInterest = new Map(); // interestId -> [{ ws, userId }]
+const generalWaiting = []; // [{ ws, userId }]
+const activeRooms = new Map(); // roomId -> { user1, user2, interestId }
+let roomCounter = 1;
+
+function generateRoomId() {
+  return `room-${roomCounter++}`;
+}
+
+function removeFromQueues(ws) {
+  if (ws.currentQueue === 'interest' && ws.currentInterestId) {
+    const queue = waitingByInterest.get(ws.currentInterestId);
+    if (queue) {
+      const idx = queue.findIndex((entry) => entry.ws === ws);
+      if (idx >= 0) {
+        queue.splice(idx, 1);
+        if (queue.length === 0) {
+          waitingByInterest.delete(ws.currentInterestId);
+        }
+      }
+    }
+  }
+  if (ws.currentQueue === 'general') {
+    const idx = generalWaiting.findIndex((entry) => entry.ws === ws);
+    if (idx >= 0) {
+      generalWaiting.splice(idx, 1);
+    }
+  }
+  ws.currentQueue = null;
+  ws.currentInterestId = null;
+}
+
+function notifyWaiting(ws, { message, queue, interestId, canExtend }) {
+  ws.send(
+    JSON.stringify({
+      type: 'waiting',
+      queue,
+      interestId,
+      interestName: interestId ? interestCache.get(interestId) || null : null,
+      canExtend,
+      message
+    })
+  );
+}
+
+function startRoom(entryA, entryB, interestId, reason) {
+  const roomId = generateRoomId();
+  activeRooms.set(roomId, {
+    roomId,
+    interestId: interestId || null,
+    user1: entryA,
+    user2: entryB
+  });
+
+  entryA.ws.roomId = roomId;
+  entryB.ws.roomId = roomId;
+
+  entryA.ws.currentQueue = null;
+  entryB.ws.currentQueue = null;
+  entryA.ws.currentInterestId = null;
+  entryB.ws.currentInterestId = null;
+
+  const interestName = interestId ? interestCache.get(interestId) || null : null;
+
+  entryA.ws.send(
+    JSON.stringify({
+      type: 'paired',
+      partner: entryB.username,
+      roomId,
+      interestId,
+      interestName,
+      reason
+    })
+  );
+  entryB.ws.send(
+    JSON.stringify({
+      type: 'paired',
+      partner: entryA.username,
+      roomId,
+      interestId,
+      interestName,
+      reason
+    })
+  );
+}
+
+function attemptInterestMatch(interestId, entry) {
+  const queue = waitingByInterest.get(interestId);
+  if (queue && queue.length > 0) {
+    const partner = queue.shift();
+    if (queue.length === 0) {
+      waitingByInterest.delete(interestId);
+    }
+    startRoom(partner, entry, interestId, 'interest');
+    return true;
+  }
+  return false;
+}
+
+function attemptGeneralMatch(entry) {
+  if (generalWaiting.length > 0) {
+    const partner = generalWaiting.shift();
+    startRoom(partner, entry, null, 'extended');
+    return true;
+  }
+  return false;
+}
+
+const wss = new WebSocket.Server({
+  noServer: true,
+  clientTracking: true,
+  perMessageDeflate: false
+});
+
+server.on('upgrade', (request, socket, head) => {
+  sessionMiddleware(request, {}, async () => {
+    if (!request.session?.userId) {
+      socket.write('HTTP/1.1 401 Unauthorized\r\n\r\n');
+      socket.destroy();
       return;
     }
 
-    if (msg.type === 'join' && typeof msg.username === 'string') {
-      const username = msg.username.trim();
-      if (!username) {
-        ws.send(JSON.stringify({ type: 'error', message: 'Username required' }));
+    const user = await findUserById(request.session.userId);
+    if (!user) {
+      socket.write('HTTP/1.1 401 Unauthorized\r\n\r\n');
+      socket.destroy();
+      return;
+    }
+
+    request.user = user;
+
+    wss.handleUpgrade(request, socket, head, (ws) => {
+      wss.emit('connection', ws, request);
+    });
+  });
+});
+
+wss.on('connection', (ws, request) => {
+  const user = request.user;
+  ws.userId = user.id;
+  ws.username = user.username;
+  ws.currentQueue = null;
+  ws.currentInterestId = null;
+  ws.roomId = null;
+
+  console.log(`🟢 WebSocket connected for user ${user.username}`);
+
+  ws.on('message', async (data) => {
+    let msg;
+    try {
+      msg = JSON.parse(data);
+    } catch (error) {
+      ws.send(JSON.stringify({ type: 'error', message: 'Invalid message payload' }));
+      return;
+    }
+
+    if (msg.type === 'join') {
+      if (ws.roomId) {
+        ws.send(JSON.stringify({ type: 'error', message: 'You are already in a room.' }));
         return;
       }
 
-      ws.username = username;
-      waitingUsers.push({ ws, username });
-      console.log(`👤 "${username}" joined waiting room (total: ${waitingUsers.length})`);
-
-      if (waitingUsers.length >= 2) {
-        const user1 = waitingUsers.shift();
-        const user2 = waitingUsers.shift();
-        const roomId = generateRoomId();
-
-        activeRooms.set(roomId, { user1, user2 });
-
-        user1.ws.send(JSON.stringify({ type: 'paired', partner: user2.username }));
-        user2.ws.send(JSON.stringify({ type: 'paired', partner: user1.username }));
-
-        console.log(`🔗 Paired "${user1.username}" ↔ "${user2.username}" in ${roomId}`);
-      } else {
-        ws.send(JSON.stringify({ type: 'waiting' }));
-      }
-    }
-
-    else if (msg.type === 'chat' && typeof msg.text === 'string') {
-      if (!ws.username) {
-        ws.send(JSON.stringify({ type: 'error', message: 'Join first' }));
+      const interestId = Number(msg.interestId);
+      if (!Number.isInteger(interestId)) {
+        ws.send(JSON.stringify({ type: 'error', message: 'Interest selection is required.' }));
         return;
       }
 
-      console.log(`📨 Message from ${ws.username}: "${msg.text}"`);
-
-      let partnerWs = null;
-      for (const [roomId, room] of activeRooms) {
-        if (room.user1.ws === ws) {
-          partnerWs = room.user2.ws;
-          break;
-        }
-        if (room.user2.ws === ws) {
-          partnerWs = room.user1.ws;
-          break;
-        }
+      const userInterests = await getUserInterests(ws.userId);
+      const allowedInterestIds = userInterests.map((i) => i.id);
+      if (!allowedInterestIds.includes(interestId)) {
+        ws.send(JSON.stringify({ type: 'error', message: 'Interest not configured for this user.' }));
+        return;
       }
 
-      if (partnerWs && partnerWs.readyState === WebSocket.OPEN) {
-        console.log(`✅ Forwarding to ${partnerWs.username}`);
-        partnerWs.send(JSON.stringify({
-          type: 'chat',
-          from: ws.username,
-          text: msg.text.trim()
-        }));
-      } else {
-        console.log(`❌ NO PARTNER FOUND for ${ws.username}`);
+      removeFromQueues(ws);
+      const entry = { ws, userId: ws.userId, username: ws.username };
+
+      const matched = attemptInterestMatch(interestId, entry);
+      if (!matched) {
+        const queue = waitingByInterest.get(interestId) || [];
+        queue.push(entry);
+        waitingByInterest.set(interestId, queue);
+        ws.currentQueue = 'interest';
+        ws.currentInterestId = interestId;
+
+        notifyWaiting(ws, {
+          message: 'No one else is waiting on that interest right now.',
+          queue: 'interest',
+          interestId,
+          canExtend: true
+        });
       }
+      return;
     }
+
+    if (msg.type === 'extend-search') {
+      if (ws.roomId) {
+        ws.send(JSON.stringify({ type: 'error', message: 'Already chatting.' }));
+        return;
+      }
+
+      const entry = { ws, userId: ws.userId, username: ws.username };
+      const interestId = ws.currentInterestId;
+      removeFromQueues(ws);
+
+      const matched = attemptGeneralMatch(entry);
+      if (!matched) {
+        generalWaiting.push(entry);
+        ws.currentQueue = 'general';
+        notifyWaiting(ws, {
+          message: 'Extended search... we will connect you with anyone available.',
+          queue: 'general',
+          interestId,
+          canExtend: false
+        });
+      }
+      return;
+    }
+
+    if (msg.type === 'cancel-waiting') {
+      removeFromQueues(ws);
+      ws.send(JSON.stringify({ type: 'waiting-cancelled' }));
+      return;
+    }
+
+    if (msg.type === 'chat' && typeof msg.text === 'string') {
+      if (!ws.roomId) {
+        ws.send(JSON.stringify({ type: 'error', message: 'Join a room before chatting.' }));
+        return;
+      }
+
+      const room = activeRooms.get(ws.roomId);
+      if (!room) {
+        ws.send(JSON.stringify({ type: 'error', message: 'Room not found.' }));
+        return;
+      }
+
+      const partner = room.user1.ws === ws ? room.user2 : room.user1;
+      if (partner.ws.readyState === WebSocket.OPEN) {
+        partner.ws.send(
+          JSON.stringify({
+            type: 'chat',
+            from: ws.username,
+            text: msg.text.trim()
+          })
+        );
+      } else {
+        ws.send(JSON.stringify({ type: 'error', message: 'Partner disconnected.' }));
+      }
+      return;
+    }
+
+    if (msg.type === 'leave-room') {
+      if (!ws.roomId) {
+        ws.send(JSON.stringify({ type: 'error', message: 'You are not in a room.' }));
+        return;
+      }
+
+      const room = activeRooms.get(ws.roomId);
+      if (!room) {
+        ws.send(JSON.stringify({ type: 'error', message: 'Room not found.' }));
+        return;
+      }
+
+      const partner = room.user1.ws === ws ? room.user2 : room.user1;
+      activeRooms.delete(ws.roomId);
+      ws.roomId = null;
+      removeFromQueues(ws);
+      ws.send(
+        JSON.stringify({
+          type: 'left-room',
+          message: 'You left the chat.'
+        })
+      );
+
+      if (partner.ws.readyState === WebSocket.OPEN) {
+        partner.ws.roomId = null;
+        partner.ws.send(
+          JSON.stringify({
+            type: 'partner-left'
+          })
+        );
+      }
+      return;
+    }
+
+    ws.send(JSON.stringify({ type: 'error', message: 'Unknown action.' }));
   });
 
   ws.on('close', () => {
-    console.log('🔴 User disconnected');
+    console.log(`🔴 WebSocket closed for ${ws.username}`);
+    removeFromQueues(ws);
 
-    const waitingIndex = waitingUsers.findIndex(u => u.ws === ws);
-    if (waitingIndex !== -1) {
-      const removed = waitingUsers.splice(waitingIndex, 1)[0];
-      console.log(`🗑️ Removed "${removed.username}" from waiting queue`);
-    }
-
-    for (const [roomId, room] of activeRooms) {
-      if (room.user1.ws === ws || room.user2.ws === ws) {
+    if (ws.roomId) {
+      const room = activeRooms.get(ws.roomId);
+      if (room) {
         const partner = room.user1.ws === ws ? room.user2 : room.user1;
-        console.log(`💥 Room ${roomId} destroyed — "${ws.username}" left`);
-
+        activeRooms.delete(ws.roomId);
         if (partner.ws.readyState === WebSocket.OPEN) {
+          partner.ws.roomId = null;
           partner.ws.send(JSON.stringify({ type: 'partner-left' }));
+          notifyWaiting(partner.ws, {
+            message: 'Your partner left the chat.',
+            queue: null,
+            interestId: null,
+            canExtend: false
+          });
         }
-
-        activeRooms.delete(roomId);
-        break;
       }
     }
   });
@@ -262,144 +544,81 @@ wss.on('connection', (ws, request) => {
   });
 });
 
-// Add CORS headers for WebSocket connections
-app.use((req, res, next) => {
-  res.header('Access-Control-Allow-Origin', '*');
-  res.header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-
-  // Handle preflight requests
-  if (req.method === 'OPTIONS') {
-    return res.status(200).end();
-  }
-
-  next();
-});
-
-// Serve static files in production ONLY if they exist
-if (process.env.NODE_ENV === 'production') {
-  const clientPath = path.join(__dirname, 'client/dist');
-
-  // Only serve static files if the directory exists
-  const fs = require('fs');
-  if (fs.existsSync(clientPath)) {
-    app.use(express.static(clientPath));
-    app.get('*', (req, res) => {
-      res.sendFile(path.join(clientPath, 'index.html'));
-    });
-    console.log('✅ Serving React client from:', clientPath);
-  } else {
-    console.log('⚠️  No React client found, serving API only');
-
-    // Serve a simple HTML page for the root route
-    app.get('/', (req, res) => {
-      res.send(`
-        <!DOCTYPE html>
-        <html>
-        <head>
-            <title>Fugue P2P Chat</title>
-            <style>
-                body { font-family: Arial, sans-serif; margin: 40px; }
-                .container { max-width: 800px; margin: 0 auto; }
-                .status { padding: 10px; background: #f0f0f0; border-radius: 5px; }
-                .test-area { margin: 20px 0; padding: 15px; border: 1px solid #ccc; }
-            </style>
-        </head>
-        <body>
-            <div class="container">
-                <h1>🚀 Fugue P2P Chat Server</h1>
-                <div class="status">
-                    <p><strong>Status:</strong> ✅ Server is running</p>
-                    <p><strong>WebSocket:</strong> Ready for connections</p>
-                    <p><strong>Port:</strong> ${process.env.PORT || 8080}</p>
-                </div>
-
-                <div class="test-area">
-                    <h3>Test WebSocket Connection:</h3>
-                    <button onclick="testWebSocket()">Test Connection</button>
-                    <div id="ws-status"></div>
-                </div>
-
-                <p>This is a WebSocket server for the Fugue P2P chat application.</p>
-                <p>Connect to the WebSocket endpoint to use the chat functionality.</p>
-                <p><em>No React client is deployed. This server provides the WebSocket API only.</em></p>
-            </div>
-
-            <script>
-                function testWebSocket() {
-                    const statusDiv = document.getElementById('ws-status');
-                    statusDiv.innerHTML = 'Connecting...';
-
-                    const ws = new WebSocket('wss://' + window.location.host);
-
-                    ws.onopen = () => {
-                        statusDiv.innerHTML = '✅ Connected! Sending test message...';
-                        ws.send(JSON.stringify({ type: 'join', username: 'tester' }));
-                    };
-
-                    ws.onmessage = (event) => {
-                        statusDiv.innerHTML += '<br>📨 Received: ' + event.data;
-                    };
-
-                    ws.onerror = (error) => {
-                        statusDiv.innerHTML = '❌ Connection failed: ' + error;
-                    };
-
-                    ws.onclose = () => {
-                        statusDiv.innerHTML += '<br>🔌 Connection closed';
-                    };
-                }
-            </script>
-        </body>
-        </html>
-      `);
-    });
-  }
-} else {
-  // Development - simple root route
-  app.get('/', (req, res) => {
-    res.send(`
-      <!DOCTYPE html>
-      <html>
-      <head>
-          <title>Fugue P2P Chat - Development</title>
-      </head>
-      <body>
-          <h1>🚀 Fugue P2P Chat Server (Development)</h1>
-          <p>WebSocket server is running on port ${process.env.PORT || 8080}</p>
-          <p>Connect to ws://localhost:${process.env.PORT || 8080} to use the WebSocket API</p>
-      </body>
-      </html>
-    `);
-  });
+if (HAS_CLIENT_BUILD) {
+  console.log('✅ Serving React client from:', CLIENT_DIST_PATH);
+  app.use(express.static(CLIENT_DIST_PATH));
+} else if (process.env.NODE_ENV === 'production') {
+  console.warn('⚠️  client/dist build not found. Only API endpoints will be available.');
 }
 
-// Health check endpoint
 app.get('/health', (req, res) => {
   res.status(200).json({
     status: 'healthy',
-    service: 'Fugue P2P Chat',
+    service: 'Fugue Chat',
     timestamp: new Date().toISOString(),
     websocket: 'active',
     environment: process.env.NODE_ENV || 'development'
   });
 });
 
-// WebSocket test endpoint
 app.get('/websocket-info', (req, res) => {
   res.json({
-    websocket_url: 'wss://' + req.get('host'),
-    supported_actions: ['join', 'chat'],
+    websocket_url: `wss://${req.get('host')}`,
+    supported_actions: ['join', 'extend-search', 'chat'],
     active_connections: wss.clients.size,
-    waiting_users: waitingUsers.length,
+    waiting_interest_queues: Array.from(waitingByInterest.entries()).map(([interestId, queue]) => ({
+      interestId,
+      size: queue.length
+    })),
+    general_waiting: generalWaiting.length,
     active_rooms: activeRooms.size
   });
 });
 
-// Use Cloud Run's PORT
+if (HAS_CLIENT_BUILD) {
+  app.get('*', (req, res, next) => {
+    if (
+      req.path.startsWith('/api') ||
+      req.path === '/health' ||
+      req.path === '/websocket-info'
+    ) {
+      return next();
+    }
+    res.sendFile(CLIENT_INDEX_PATH);
+  });
+} else if (process.env.NODE_ENV !== 'production') {
+  app.get('/', (req, res) => {
+    res.send(`
+      <!DOCTYPE html>
+      <html>
+      <head>
+          <title>Fugue Chat API</title>
+      </head>
+      <body>
+          <h1>Fugue Chat API</h1>
+          <p>The backend is running on port ${process.env.PORT || 8080}.</p>
+          <p>No React build was found at <code>client/dist</code>.</p>
+          <p>Run <code>npm install</code> and <code>npm run build</code> inside <code>client/</code>, then refresh.</p>
+      </body>
+      </html>
+    `);
+  });
+} else {
+  app.get('/', (req, res) => {
+    res.send('<h1>Fugue API</h1><p>Client build missing.</p>');
+  });
+}
+
 const PORT = process.env.PORT || 8080;
-server.listen(PORT, '0.0.0.0', () => {
-  console.log(`🚀 Fugue P2P server running on port ${PORT}`);
-  console.log(`WebSocket server: ws://localhost:${PORT}`);
-  console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
-});
+
+ensureSchema()
+  .then(refreshInterestCache)
+  .then(() => {
+    server.listen(PORT, '0.0.0.0', () => {
+      console.log(`🚀 Fugue chat server running on port ${PORT}`);
+    });
+  })
+  .catch((error) => {
+    console.error('Failed to start server', error);
+    process.exit(1);
+  });

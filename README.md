@@ -13,11 +13,12 @@
 
 | Feature | Description |
 |--------|-------------|
-| 🔒 **Ephemeral by Design** | All messages live **only in browser memory** — gone on refresh, logout, or disconnect. |
-| 👥 **Anonymous Pairing** | Enter a name → instantly matched with a stranger. No accounts. No history. |
-| 🌐 **Real-Time Sync** | WebSocket-powered live messaging with auto-pairing. |
-| 🧼 **One-Click Logout** | Blurs screen on exit to prevent screenshots. |
-| 🎨 **Dark Mode UI** | Clean, modern interface with Tailwind CSS. |
+| 🔐 **Account-Based Access** | Users sign up and log in with username + password. Sessions persist via secure cookies until logout. |
+| 🎯 **Interest Matching** | Select multiple interests; chat pairing prioritises shared interests with optional "extend search" fallback. |
+| 🔄 **Real-Time Sync** | WebSocket-powered live messaging with automatic pairing and partner presence events. |
+| 🚪 **Leave Any Time** | Leave chat without logging out — return to the lobby with a single click. |
+| 🧼 **Ephemeral by Design** | Messages live only in memory — nothing saved after disconnect. |
+| 🎨 **Dark Mode UI** | Clean Tailwind UI with responsive layout. |
 | 🐳 **Docker-Ready** | Dev & prod Dockerfiles included. |
 | 🔄 **CI/CD Pipeline** | Automated testing, building, and deployment via GitHub Actions. |
 
@@ -27,28 +28,47 @@
 
 ### Prerequisites
 - Node.js v18+
+- PostgreSQL (local or remote). The default dev DSN expects a local database named `fugue_app`.
 - Docker (optional, for container testing)
 
-### Run Locally
+### 1. Install dependencies
 ```bash
 # Clone the repo
 git clone https://github.com/umarmahmoodshk/fugue-app.git
 cd fugue-app
 
-# Install backend
+# Backend deps
 npm install
 
-# Install frontend
-cd client && npm install && cd ..
-
-# Start backend
-npm start
-
-# In a new terminal, start frontend
-cd client && npm run dev
+# Frontend deps
+npm install --prefix client
 ```
 
-👉 Open **http://localhost:5173** in **two tabs** → chat anonymously!
+### 2. Configure Postgres
+```bash
+# Create the local database (optional if you supply DATABASE_URL)
+createdb fugue_app
+```
+Create a `.env` in the project root if you want to override defaults:
+```env
+DATABASE_URL=postgres://user:password@localhost:5432/fugue_app
+SESSION_SECRET=super-secret
+```
+
+### 3. Run the app
+```bash
+# Start the backend (ensures schema automatically)
+npm run dev
+
+# Option A: run the Vite dev server (hot reload)
+npm run dev --prefix client
+#   visit http://localhost:5173
+
+# Option B: build the client once and let Express serve it
+npm run build:client
+#   reload http://localhost:8080
+```
+Sign up with a username/password, pick interests, then start matching. Use the **Leave** button to exit a chat without logging out.
 
 ---
 
