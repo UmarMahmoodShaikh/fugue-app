@@ -1,32 +1,20 @@
-# Multi-stage build for frontend + backend
-FROM node:18-alpine AS client-builder
-
-# Build the React app
-WORKDIR /app/client
-COPY client/package*.json ./
-RUN npm ci
-COPY client/ ./
-RUN npm run build
-
-# Final stage
 FROM node:18-alpine
 WORKDIR /app
 
-# Copy built React app from builder stage
-COPY --from=client-builder /app/client/dist ./client/dist
-
-# Copy backend
+# Copy package files first (for better caching)
 COPY package*.json ./
+
+# Install dependencies
 RUN npm ci --only=production
+
+# Copy application code
 COPY index.js ./
 
-# Create non-root user
-RUN addgroup -g 1001 -S nodejs && \
-    adduser -S nextuser -u 1001 && \
-    chown -R nextuser:nodejs /app
-USER nextuser
+# Debug: List files to verify everything is there
+RUN ls -la
 
-EXPOSE 8080
-ENV NODE_ENV=production
+# Expose the correct port
+EXPOSE 3000
 
+# Start the application
 CMD ["node", "index.js"]
