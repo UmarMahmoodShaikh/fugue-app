@@ -87,14 +87,14 @@ jobs:
             --platform managed \
             --region ${{ env.GCP_REGION }} \
             --allow-unauthenticated \
-            --port 8080 \
             --memory 512Mi \
             --cpu 1 \
             --min-instances 1 \
             --max-instances 10 \
+            --timeout 300 \
+            --session-affinity \
             --set-env-vars "NODE_ENV=production" \
-            --timeout 3600 \
-            --session-affinity
+            --set-secrets="DATABASE_URL=database-url:latest,SESSION_SECRET=session-secret:latest"
 
       - name: Wait for deployment
         run: sleep 30

@@ -609,16 +609,40 @@ if (HAS_CLIENT_BUILD) {
   });
 }
 
+let isReady = false;
+
 const PORT = process.env.PORT || 8080;
 
-ensureSchema()
-  .then(refreshInterestCache)
-  .then(() => {
-    server.listen(PORT, '0.0.0.0', () => {
-      console.log(`🚀 Fugue chat server running on port ${PORT}`);
+server.listen(PORT, '0.0.0.0', () => {
+  console.log(`🚀 Fugue chat server running on port ${PORT}`);
+
+  ensureSchema()
+    .then(refreshInterestCache)
+    .then(() => {
+      isReady = true;
+      console.log('✅ Database initialized and ready');
+    })
+    .catch((error) => {
+      console.error('❌ Database initialization failed:', error);
+      // Optionally exit after some retries
     });
-  })
-  .catch((error) => {
-    console.error('Failed to start server', error);
-    process.exit(1);
+});
+
+// Update health check to reflect readiness
+app.get('/health', (req, res) => {
+  if (!isReady) {
+    return res.status(503).json({
+      status: 'starting',
+      message: 'Database initializing...',
+      timestamp: new Date().toISOString()
+    });
+  }
+
+  res.status(200).json({
+    status: 'healthy',
+    service: 'Fugue Chat',
+    timestamp: new Date().toISOString(),
+    websocket: 'active',
+    environment: process.env.NODE_ENV || 'development'
   });
+});
