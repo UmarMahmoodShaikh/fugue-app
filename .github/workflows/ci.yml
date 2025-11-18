@@ -230,7 +230,7 @@ jobs:
   build-dev:
     name: 🐳 Build Dev Docker Image
     needs: [test-backend, test-frontend, performance-test, security-scan]
-    if: github.ref == 'refs/heads/dev'
+    if: github.ref == 'refs/heads/main-test-cases'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -266,7 +266,7 @@ jobs:
   build-and-deploy-prod:
     name: 🚀 Build & Deploy to Production
     needs: [test-backend, test-frontend, performance-test, security-scan]
-    if: github.ref == 'refs/heads/main'
+    if: github.ref == 'refs/heads/main-test-cases'
     runs-on: ubuntu-latest
     permissions:
       contents: read
