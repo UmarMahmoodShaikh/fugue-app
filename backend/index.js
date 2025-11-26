@@ -68,6 +68,16 @@ app.use((req, res, next) => {
 
 app.use(sessionMiddleware);
 
+// Health check endpoint for CI/CD
+app.get('/health', (req, res) => {
+  res.status(200).json({ 
+    status: 'OK', 
+    timestamp: new Date().toISOString(),
+    service: 'fugue-backend',
+    version: process.env.npm_package_version || '1.0.0'
+  });
+});
+
 const interestCache = new Map();
 
 async function refreshInterestCache() {

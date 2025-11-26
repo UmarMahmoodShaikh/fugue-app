@@ -1,24 +1,27 @@
 {
-  "name": "dev-ops-app",
+  "name": "fugue-app",
   "version": "1.0.0",
+  "description": "Fugue - Ephemeral Anonymous Chat Application",
   "main": "index.js",
   "scripts": {
-    "start": "node index.js",
-    "dev": "node index.js",
-    "build:client": "npm --prefix client run build",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "install:backend": "cd backend && npm install",
+    "install:frontend": "cd frontend && npm install",
+    "install:all": "npm run install:backend && npm run install:frontend",
+    "dev:backend": "cd backend && npm run dev",
+    "dev:frontend": "cd frontend && npm run dev",
+    "build:backend": "cd backend && npm run build",
+    "build:frontend": "cd frontend && npm run build",
+    "start:backend": "cd backend && npm start",
+    "start:frontend": "cd frontend && npm start",
+    "docker:dev": "docker-compose -f docker-compose.dev.yml up --build",
+    "docker:prod": "docker-compose -f docker-compose.prod.yml up --build -d",
+    "docker:down": "docker-compose down"
   },
-  "keywords": [],
+  "keywords": ["chat", "websocket", "react", "express", "postgresql"],
   "author": "",
   "license": "ISC",
-  "dependencies": {
-    "bcryptjs": "^2.4.3",
-    "connect-pg-simple": "^9.0.0",
-    "dotenv": "^16.3.1",
-    "express": "^4.18.2",
-    "express-session": "^1.17.3",
-    "pg": "^8.12.0",
-    "ws": "^8.18.0"
-  },
-  "description": ""
+  "workspaces": [
+    "backend",
+    "frontend"
+  ]
 }
