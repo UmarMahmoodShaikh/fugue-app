@@ -20,9 +20,7 @@ services:
 
   # Backend Service
   backend:
-    build:
-      context: ./backend
-      dockerfile: Dockerfile.prod
+    image: ${BACKEND_IMAGE:-registry.gitlab.com/umarmahmoodshk-group/fugue-app/backend:latest}
     ports:
       - "8080:8080"
     environment:
@@ -36,9 +34,7 @@ services:
 
   # Frontend Service (Nginx)
   frontend:
-    build:
-      context: ./frontend
-      dockerfile: Dockerfile.prod
+    image: ${FRONTEND_IMAGE:-registry.gitlab.com/umarmahmoodshk-group/fugue-app/frontend:latest}
     ports:
       - "80:80"
     restart: unless-stopped
