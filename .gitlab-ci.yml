@@ -23,7 +23,7 @@ variables:
 # BUILD STAGE
 # =============================================================================
 
-build_backend:
+build_backend_image:
   stage: build
   image: docker:stable
   services:
@@ -42,7 +42,7 @@ build_backend:
     - develop
     - MB
 
-build_frontend:
+build_frontend_image:
   stage: build
   image: docker:stable
   services:
@@ -99,8 +99,8 @@ deploy_staging:
       curl -f http://localhost:8080/health || exit 1
       echo "✅ Staging deployment successful!"
   dependencies:
-    - build_backend
-    - build_frontend
+    - build_backend_image
+    - build_frontend_image
   only:
     - develop
     - MB
@@ -143,8 +143,8 @@ deploy_production:
       # Clean up old images
       docker system prune -f
   dependencies:
-    - build_backend
-    - build_frontend
+    - build_backend_image
+    - build_frontend_image
   only:
     - main
   when: manual
