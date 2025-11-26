@@ -12,6 +12,8 @@ variables:
   IMAGE_TAG: $CI_COMMIT_SHORT_SHA
   FRONTEND_IMAGE: $CI_REGISTRY_IMAGE/frontend
   BACKEND_IMAGE: $CI_REGISTRY_IMAGE/backend
+  
+  # Deploy directory on server
   DEPLOY_DIR: "/home/ubuntu/fugue-app"
 
 # =============================================================================
@@ -105,7 +107,7 @@ test_frontend:
 # DEPLOY STAGE
 # =============================================================================
 
-deploy_staging:
+deploy_aws_staging:
   stage: deploy
   image: alpine:latest
   needs:
@@ -114,40 +116,41 @@ deploy_staging:
     - test_backend
     - test_frontend
   before_script:
-    - apk add --no-cache openssh-client rsync bash docker-cli
+    - apk add --no-cache openssh-client rsync bash docker-cli curl
     - mkdir -p ~/.ssh && chmod 700 ~/.ssh
-    - echo "$SSH_PRIVATE_KEY" > ~/.ssh/id_rsa
+    - echo "$AWS_EC2_PRIVATE_KEY" > ~/.ssh/id_rsa
     - chmod 600 ~/.ssh/id_rsa
-    - ssh-keyscan -H "$STAGING_HOST" >> ~/.ssh/known_hosts 2>/dev/null || true
+    - ssh-keyscan -H "$EC2_HOST" >> ~/.ssh/known_hosts 2>/dev/null || true
   script:
-    - echo "🚀 Deploying Fugue app to staging ($STAGING_HOST)..."
+    - echo "🚀 Deploying Fugue app to AWS EC2 ($STAGING_HOST)..."
     
-    # Copy docker-compose file
+    # Copy docker-compose file to EC2
     - rsync -avz docker-compose.prod.yml "$STAGING_USER@$STAGING_HOST:$DEPLOY_DIR/docker-compose.yml"
     
-    # Deploy to staging server
+    # Deploy to AWS EC2 instance
     - |
       ssh -o StrictHostKeyChecking=no "$STAGING_USER@$STAGING_HOST" \
         "cd $DEPLOY_DIR && \
+         echo '🔐 Logging into GitLab Container Registry...' && \
          echo '$CI_REGISTRY_PASSWORD' | docker login -u '$CI_REGISTRY_USER' --password-stdin $CI_REGISTRY && \
          export FRONTEND_IMAGE='$FRONTEND_IMAGE:$IMAGE_TAG' && \
          export BACKEND_IMAGE='$BACKEND_IMAGE:$IMAGE_TAG' && \
          export POSTGRES_PASSWORD=\$POSTGRES_PASSWORD && \
-         export SESSION_SECRET=\$SESSION_SECRET && \
-         echo '🔍 Pulling latest images...' && \
+         export SESSION_SECRET=\$JWT_SECRET && \
+         echo '📥 Pulling latest Docker images...' && \
          docker pull \$FRONTEND_IMAGE && \
          docker pull \$BACKEND_IMAGE && \
          echo '🛑 Stopping old containers...' && \
          docker-compose down --timeout 30 || true && \
          echo '🚀 Starting new containers...' && \
          docker-compose up -d && \
-         echo '⏳ Waiting for health check...' && \
+         echo '⏳ Waiting for services to start...' && \
          sleep 30 && \
          echo '🔍 Testing backend health...' && \
          curl -f http://localhost:8080/health && \
-         echo '✅ Staging deployment completed!'"
+         echo '✅ AWS EC2 deployment completed!'"
   environment:
-    name: staging
+    name: aws-staging
     url: http://$STAGING_HOST
   dependencies:
     - build_backend_image
@@ -157,7 +160,7 @@ deploy_staging:
     - MB
   when: manual
 
-deploy_production:
+deploy_aws_production:
   stage: deploy
   image: alpine:latest
   needs:
@@ -166,44 +169,45 @@ deploy_production:
     - test_backend
     - test_frontend
   before_script:
-    - apk add --no-cache openssh-client rsync bash docker-cli
+    - apk add --no-cache openssh-client rsync bash docker-cli curl
     - mkdir -p ~/.ssh && chmod 700 ~/.ssh
     - echo "$SSH_PRIVATE_KEY" > ~/.ssh/id_rsa
     - chmod 600 ~/.ssh/id_rsa
-    - ssh-keyscan -H "$PROD_HOST" >> ~/.ssh/known_hosts 2>/dev/null || true
+    - ssh-keyscan -H "$STAGING_HOST" >> ~/.ssh/known_hosts 2>/dev/null || true
   script:
-    - echo "🚀 Deploying Fugue app to production ($PROD_HOST)..."
+    - echo "🚀 Deploying Fugue app to AWS EC2 Production ($STAGING_HOST)..."
     
-    # Copy docker-compose file
-    - rsync -avz docker-compose.prod.yml "$PROD_USER@$PROD_HOST:$DEPLOY_DIR/docker-compose.yml"
+    # Copy docker-compose file to EC2
+    - rsync -avz docker-compose.prod.yml "$STAGING_USER@$STAGING_HOST:$DEPLOY_DIR/docker-compose.yml"
     
-    # Deploy to production server
+    # Deploy to AWS EC2 production
     - |
-      ssh -o StrictHostKeyChecking=no "$PROD_USER@$PROD_HOST" \
+      ssh -o StrictHostKeyChecking=no "$STAGING_USER@$STAGING_HOST" \
         "cd $DEPLOY_DIR && \
          echo '🔧 Preparing production deployment...' && \
+         echo '🔐 Logging into GitLab Container Registry...' && \
          echo '$CI_REGISTRY_PASSWORD' | docker login -u '$CI_REGISTRY_USER' --password-stdin $CI_REGISTRY && \
          export FRONTEND_IMAGE='$FRONTEND_IMAGE:$IMAGE_TAG' && \
          export BACKEND_IMAGE='$BACKEND_IMAGE:$IMAGE_TAG' && \
-         export POSTGRES_PASSWORD=\$PROD_POSTGRES_PASSWORD && \
-         export SESSION_SECRET=\$PROD_SESSION_SECRET && \
-         echo '🔍 Pulling verified images...' && \
+         export POSTGRES_PASSWORD=\$POSTGRES_PASSWORD && \
+         export SESSION_SECRET=\$JWT_SECRET && \
+         echo '📥 Pulling verified Docker images...' && \
          docker pull \$FRONTEND_IMAGE && \
          docker pull \$BACKEND_IMAGE && \
          echo '🛑 Gracefully stopping containers...' && \
          docker-compose down --timeout 30 || true && \
-         echo '🧹 Cleaning old images...' && \
+         echo '🧹 Cleaning old Docker images...' && \
          docker image prune -f && \
          echo '🚀 Starting production containers...' && \
          docker-compose up -d && \
-         echo '⏳ Waiting for services...' && \
+         echo '⏳ Waiting for services to be ready...' && \
          sleep 45 && \
-         echo '🔍 Verifying deployment...' && \
+         echo '🔍 Verifying production deployment...' && \
          curl -f http://localhost:8080/health && \
-         echo '🎉 Production deployment completed successfully!'"
+         echo '🎉 AWS EC2 production deployment completed successfully!'"
   environment:
-    name: production
-    url: http://$PROD_HOST
+    name: aws-production
+    url: http://$STAGING_HOST
   dependencies:
     - build_backend_image
     - build_frontend_image
