@@ -41,8 +41,11 @@ install_dependencies:
   image: node:18-alpine
   script:
     - echo "📦 Installing dependencies..."
+    - echo "Installing backend dependencies..."
     - cd backend && npm ci --cache $NPM_CONFIG_CACHE
+    - echo "Installing frontend dependencies..."
     - cd ../frontend && npm ci --cache $NPM_CONFIG_CACHE
+    - echo "✅ All dependencies installed successfully"
   artifacts:
     paths:
       - backend/node_modules/
@@ -102,12 +105,8 @@ test_backend:
   script:
     - echo "🧪 Running backend tests..."
     - cd backend
-    - npm test || echo "⚠️ No test script found, creating basic test..."
-    - |
-      if [ ! -f "test.js" ]; then
-        echo "const assert = require('assert'); console.log('✅ Basic backend test passed'); process.exit(0);" > test.js
-        node test.js
-      fi
+    - npm test
+    - echo "✅ Backend tests completed successfully"
   coverage: '/Lines\s*:\s*(\d+\.\d+)%/'
   artifacts:
     reports:
@@ -130,12 +129,8 @@ test_frontend:
   script:
     - echo "🧪 Running frontend tests..."
     - cd frontend
-    - npm test || echo "⚠️ No test script found, creating basic test..."
-    - |
-      if [ ! -f "src/App.test.jsx" ]; then
-        echo "console.log('✅ Basic frontend test passed');" > basic-test.js
-        node basic-test.js
-      fi
+    - npm test
+    - echo "✅ Frontend tests completed successfully"
   coverage: '/Lines\s*:\s*(\d+\.\d+)%/'
   artifacts:
     reports:
@@ -223,12 +218,17 @@ build_backend:
     - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
   script:
     - echo "🏗️ Building backend Docker image..."
-    - docker build -f backend/Dockerfile.prod -t $BACKEND_IMAGE:$CI_COMMIT_SHA -t $BACKEND_IMAGE:latest backend/
+    - cd backend
+    - docker build -f Dockerfile.prod -t $BACKEND_IMAGE:$CI_COMMIT_SHA -t $BACKEND_IMAGE:latest .
     - docker push $BACKEND_IMAGE:$CI_COMMIT_SHA
     - docker push $BACKEND_IMAGE:latest
+    - echo "✅ Backend build completed successfully"
+  dependencies:
+    - test_backend
   only:
     - main
     - develop
+    - MB
 
 build_frontend:
   stage: build
@@ -237,13 +237,16 @@ build_frontend:
     - docker:dind
   dependencies:
     - install_dependencies
+    - test_frontend
   before_script:
     - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
   script:
     - echo "🏗️ Building frontend application..."
-    - docker build -f frontend/Dockerfile.prod -t $FRONTEND_IMAGE:$CI_COMMIT_SHA -t $FRONTEND_IMAGE:latest frontend/
+    - cd frontend
+    - docker build -f Dockerfile.prod -t $FRONTEND_IMAGE:$CI_COMMIT_SHA -t $FRONTEND_IMAGE:latest .
     - docker push $FRONTEND_IMAGE:$CI_COMMIT_SHA
     - docker push $FRONTEND_IMAGE:latest
+    - echo "✅ Frontend build completed successfully"
   artifacts:
     paths:
       - frontend/dist/
@@ -251,6 +254,7 @@ build_frontend:
   only:
     - main
     - develop
+    - MB
 
 # =============================================================================
 # DEPLOY STAGE
@@ -279,6 +283,11 @@ deploy_staging:
       export POSTGRES_PASSWORD=$STAGING_POSTGRES_PASSWORD
       export SESSION_SECRET=$STAGING_SESSION_SECRET
       
+      # Update docker-compose to use built images
+      sed -i "s|build:|image: $BACKEND_IMAGE:$CI_COMMIT_SHA #build:|g" docker-compose.prod.yml
+      sed -i "s|context: ./backend|#context: ./backend|g" docker-compose.prod.yml
+      sed -i "s|dockerfile: Dockerfile.prod|#dockerfile: Dockerfile.prod|g" docker-compose.prod.yml
+      
       # Stop existing containers
       docker-compose -f docker-compose.prod.yml down || true
       
@@ -294,6 +303,7 @@ deploy_staging:
     - build_frontend
   only:
     - develop
+    - MB
   when: manual
 
 deploy_production:
@@ -318,6 +328,11 @@ deploy_production:
       export FRONTEND_IMAGE_TAG=$CI_COMMIT_SHA
       export POSTGRES_PASSWORD=$PROD_POSTGRES_PASSWORD
       export SESSION_SECRET=$PROD_SESSION_SECRET
+      
+      # Update docker-compose to use built images
+      sed -i "s|build:|image: $BACKEND_IMAGE:$CI_COMMIT_SHA #build:|g" docker-compose.prod.yml
+      sed -i "s|context: ./backend|#context: ./backend|g" docker-compose.prod.yml
+      sed -i "s|dockerfile: Dockerfile.prod|#dockerfile: Dockerfile.prod|g" docker-compose.prod.yml
       
       # Blue-green deployment simulation
       docker-compose -f docker-compose.prod.yml up -d
