@@ -5,12 +5,6 @@ const http = require('http');
 const WebSocket = require('ws');
 const session = require('express-session');
 const PgSession = require('connect-pg-simple')(session);
-const path = require('path');
-const fs = require('fs');
-
-const CLIENT_DIST_PATH = path.join(__dirname, 'client/dist');
-const CLIENT_INDEX_PATH = path.join(CLIENT_DIST_PATH, 'index.html');
-const HAS_CLIENT_BUILD = fs.existsSync(CLIENT_INDEX_PATH);
 
 const {
   pool,
@@ -554,17 +548,24 @@ wss.on('connection', (ws, request) => {
   });
 });
 
-if (HAS_CLIENT_BUILD) {
-  console.log('✅ Serving React client from:', CLIENT_DIST_PATH);
-  app.use(express.static(CLIENT_DIST_PATH));
-} else if (process.env.NODE_ENV === 'production') {
-  console.warn('⚠️  client/dist build not found. Only API endpoints will be available.');
-}
+// ============================================================================
+// HEALTH CHECK & API INFO ENDPOINTS
+// ============================================================================
 
 app.get('/health', (req, res) => {
   res.status(200).json({
     status: 'healthy',
-    service: 'Fugue Chat',
+    service: 'Fugue Chat API',
+    timestamp: new Date().toISOString(),
+    websocket: 'active',
+    environment: process.env.NODE_ENV || 'development'
+  });
+});
+
+app.get('/api/health', (req, res) => {
+  res.status(200).json({
+    status: 'healthy',
+    service: 'Fugue Chat API',
     timestamp: new Date().toISOString(),
     websocket: 'active',
     environment: process.env.NODE_ENV || 'development'
@@ -573,11 +574,12 @@ app.get('/health', (req, res) => {
 
 app.get('/websocket-info', (req, res) => {
   res.json({
-    websocket_url: `wss://${req.get('host')}`,
-    supported_actions: ['join', 'extend-search', 'chat'],
+    websocket_url: `wss://${req.get('host')}/ws`,
+    supported_actions: ['join', 'extend-search', 'chat', 'leave-room', 'cancel-waiting'],
     active_connections: wss.clients.size,
     waiting_interest_queues: Array.from(waitingByInterest.entries()).map(([interestId, queue]) => ({
       interestId,
+      interestName: interestCache.get(interestId) || 'Unknown',
       size: queue.length
     })),
     general_waiting: generalWaiting.length,
@@ -585,74 +587,46 @@ app.get('/websocket-info', (req, res) => {
   });
 });
 
-if (HAS_CLIENT_BUILD) {
-  app.get('*', (req, res, next) => {
-    if (
-      req.path.startsWith('/api') ||
-      req.path === '/health' ||
-      req.path === '/websocket-info'
-    ) {
-      return next();
-    }
-    res.sendFile(CLIENT_INDEX_PATH);
+// 404 for undefined API routes
+app.use((req, res) => {
+  res.status(404).json({
+    error: 'Not Found',
+    message: `Cannot ${req.method} ${req.path}`,
+    availableEndpoints: [
+      'GET /health',
+      'GET /api/health',
+      'POST /api/signup',
+      'POST /api/login',
+      'POST /api/logout',
+      'GET /api/me',
+      'GET /api/interests',
+      'POST /api/user/interests',
+      'GET /websocket-info'
+    ]
   });
-} else if (process.env.NODE_ENV !== 'production') {
-  app.get('/', (req, res) => {
-    res.send(`
-      <!DOCTYPE html>
-      <html>
-      <head>
-          <title>Fugue Chat API</title>
-      </head>
-      <body>
-          <h1>Fugue Chat API</h1>
-          <p>The backend is running on port ${process.env.PORT || 8080}.</p>
-          <p>No React build was found at <code>client/dist</code>.</p>
-          <p>Run <code>npm install</code> and <code>npm run build</code> inside <code>client/</code>, then refresh.</p>
-      </body>
-      </html>
-    `);
-  });
-} else {
-  app.get('/', (req, res) => {
-    res.send('<h1>Fugue API</h1><p>Client build missing.</p>');
-  });
-}
+});
+
+// ============================================================================
+// SERVER INITIALIZATION
+// ============================================================================
 
 let isReady = false;
 
 const PORT = process.env.PORT || 8080;
 
 server.listen(PORT, '0.0.0.0', () => {
-  console.log(`🚀 Fugue chat server running on port ${PORT}`);
+  console.log(`🚀 Fugue Chat API server running on port ${PORT}`);
+  console.log(`📡 Environment: ${process.env.NODE_ENV || 'development'}`);
 
   ensureSchema()
     .then(refreshInterestCache)
     .then(() => {
       isReady = true;
       console.log('✅ Database initialized and ready');
+      console.log(`✅ Server ready at http://0.0.0.0:${PORT}`);
     })
     .catch((error) => {
       console.error('❌ Database initialization failed:', error);
-      // Optionally exit after some retries
+      process.exit(1);
     });
-});
-
-// Update health check to reflect readiness
-app.get('/health', (req, res) => {
-  if (!isReady) {
-    return res.status(503).json({
-      status: 'starting',
-      message: 'Database initializing...',
-      timestamp: new Date().toISOString()
-    });
-  }
-
-  res.status(200).json({
-    status: 'healthy',
-    service: 'Fugue Chat',
-    timestamp: new Date().toISOString(),
-    websocket: 'active',
-    environment: process.env.NODE_ENV || 'development'
-  });
 });
