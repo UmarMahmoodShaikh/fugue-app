@@ -21,8 +21,14 @@ const inferWebSocketUrl = () => {
   }
   const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
   const { hostname, port } = window.location;
-  const targetHost = port === '5173' ? `${hostname}:8080` : `${hostname}${port ? `:${port}` : ''}`;
-  return `${wsProtocol}//${targetHost}`;
+  
+  // dev
+  if (port === '5173') {
+    return `${wsProtocol}//${hostname}:8080`;
+  }
+  
+  // prod
+  return `${wsProtocol}//${hostname}${port ? `:${port}` : ''}/ws`;
 };
 
 const WS_URL = inferWebSocketUrl();
