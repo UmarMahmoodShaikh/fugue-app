@@ -124,13 +124,21 @@ deploy_aws_staging:
   before_script:
     - apk add --no-cache openssh-client rsync bash docker-cli curl coreutils
     - mkdir -p ~/.ssh && chmod 700 ~/.ssh
-    # Decode SSH key - printf preserves the string without adding newlines
-    - printf '%s' "$SSH_PRIVATE_KEY" | base64 -d > ~/.ssh/id_rsa
+    # Debug: Check if SSH_PRIVATE_KEY variable is set
+    - echo "SSH_PRIVATE_KEY length:" $(echo -n "$SSH_PRIVATE_KEY" | wc -c)
+    - |
+      if [ -z "$SSH_PRIVATE_KEY" ]; then
+        echo "ERROR: SSH_PRIVATE_KEY is empty!"
+        exit 1
+      fi
+    # Decode SSH key
+    - echo "$SSH_PRIVATE_KEY" | base64 -d > ~/.ssh/id_rsa
     - chmod 600 ~/.ssh/id_rsa
     # Verify key format
     - echo "Checking SSH key format..."
-    - head -1 ~/.ssh/id_rsa
-    - tail -1 ~/.ssh/id_rsa
+    - ls -lh ~/.ssh/id_rsa
+    - head -1 ~/.ssh/id_rsa || echo "ERROR: Cannot read key file"
+    - tail -1 ~/.ssh/id_rsa || echo "ERROR: Cannot read key file"
     - wc -l ~/.ssh/id_rsa
     - ssh-keyscan -H "$STAGING_HOST" >> ~/.ssh/known_hosts 2>/dev/null || true
   script:
@@ -183,13 +191,21 @@ deploy_aws_production:
   before_script:
     - apk add --no-cache openssh-client rsync bash docker-cli curl coreutils
     - mkdir -p ~/.ssh && chmod 700 ~/.ssh
-    # Decode SSH key - printf preserves the string without adding newlines
-    - printf '%s' "$SSH_PRIVATE_KEY" | base64 -d > ~/.ssh/id_rsa
+    # Debug: Check if SSH_PRIVATE_KEY variable is set
+    - echo "SSH_PRIVATE_KEY length:" $(echo -n "$SSH_PRIVATE_KEY" | wc -c)
+    - |
+      if [ -z "$SSH_PRIVATE_KEY" ]; then
+        echo "ERROR: SSH_PRIVATE_KEY is empty!"
+        exit 1
+      fi
+    # Decode SSH key
+    - echo "$SSH_PRIVATE_KEY" | base64 -d > ~/.ssh/id_rsa
     - chmod 600 ~/.ssh/id_rsa
     # Verify key format
     - echo "Checking SSH key format..."
-    - head -1 ~/.ssh/id_rsa
-    - tail -1 ~/.ssh/id_rsa
+    - ls -lh ~/.ssh/id_rsa
+    - head -1 ~/.ssh/id_rsa || echo "ERROR: Cannot read key file"
+    - tail -1 ~/.ssh/id_rsa || echo "ERROR: Cannot read key file"
     - wc -l ~/.ssh/id_rsa
     - ssh-keyscan -H "$STAGING_HOST" >> ~/.ssh/known_hosts 2>/dev/null || true
   script:
