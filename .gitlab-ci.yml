@@ -17,6 +17,9 @@ variables:
   
   # Deploy directory on server
   DEPLOY_DIR: "/home/ubuntu/fugue-app"
+  
+  # Backend configuration
+  BACKEND_PORT: "8080"
 
 # =============================================================================
 # BUILD STAGE
@@ -153,7 +156,7 @@ deploy_aws_staging:
          echo 'Waiting for services to start...' && \
          sleep 30 && \
          echo 'Testing backend health...' && \
-         curl -f http://localhost:8080/health && \
+         curl -f http://localhost:$BACKEND_PORT/health && \
          echo 'AWS EC2 deployment completed!'"
   environment:
     name: aws-staging
@@ -207,7 +210,7 @@ deploy_aws_production:
          echo 'Waiting for services to be ready...' && \
          sleep 45 && \
          echo 'Verifying production deployment...' && \
-         curl -f http://localhost:8080/health && \
+         curl -f http://localhost:$BACKEND_PORT/health && \
          echo 'AWS EC2 production deployment completed successfully!'"
   environment:
     name: aws-production
