@@ -7,10 +7,10 @@ stages:
   - deploy
 
 variables:
-  DOCKER_HOST: tcp://docker:2376
-  DOCKER_TLS_CERTDIR: "/certs"
-  DOCKER_TLS_VERIFY: 1
-  DOCKER_CERT_PATH: "$DOCKER_TLS_CERTDIR/client"
+  # Use Docker without TLS for simplicity
+  DOCKER_HOST: tcp://docker:2375
+  DOCKER_TLS_CERTDIR: ""
+  DOCKER_DRIVER: overlay2
   IMAGE_TAG: $CI_COMMIT_SHORT_SHA
   FRONTEND_IMAGE: $CI_REGISTRY_IMAGE/frontend
   BACKEND_IMAGE: $CI_REGISTRY_IMAGE/backend
@@ -28,9 +28,8 @@ build_backend_image:
   services:
     - docker:24-dind
   before_script:
-    - sleep 5  # Give DinD time to start
-    - while ! docker info >/dev/null 2>&1; do echo "Waiting for Docker..."; sleep 2; done
-    - echo "Docker is ready!"
+    - sleep 10  # Give DinD time to start
+    - docker info
     - echo "$CI_REGISTRY_PASSWORD" | docker login -u "$CI_REGISTRY_USER" --password-stdin $CI_REGISTRY
   script:
     - echo "Building backend Docker image..."
@@ -50,9 +49,8 @@ build_frontend_image:
   services:
     - docker:24-dind
   before_script:
-    - sleep 5  # Give DinD time to start
-    - while ! docker info >/dev/null 2>&1; do echo "Waiting for Docker..."; sleep 2; done
-    - echo "Docker is ready!"
+    - sleep 10  # Give DinD time to start
+    - docker info
     - echo "$CI_REGISTRY_PASSWORD" | docker login -u "$CI_REGISTRY_USER" --password-stdin $CI_REGISTRY
   script:
     - echo "Building frontend Docker image..."
