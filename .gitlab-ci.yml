@@ -28,7 +28,9 @@ build_backend_image:
   services:
     - docker:24-dind
   before_script:
-    - until docker info; do sleep 1; done  # Wait for Docker to be ready
+    - sleep 5  # Give DinD time to start
+    - while ! docker info >/dev/null 2>&1; do echo "Waiting for Docker..."; sleep 2; done
+    - echo "Docker is ready!"
     - echo "$CI_REGISTRY_PASSWORD" | docker login -u "$CI_REGISTRY_USER" --password-stdin $CI_REGISTRY
   script:
     - echo "Building backend Docker image..."
@@ -48,7 +50,9 @@ build_frontend_image:
   services:
     - docker:24-dind
   before_script:
-    - until docker info; do sleep 1; done  # Wait for Docker to be ready
+    - sleep 5  # Give DinD time to start
+    - while ! docker info >/dev/null 2>&1; do echo "Waiting for Docker..."; sleep 2; done
+    - echo "Docker is ready!"
     - echo "$CI_REGISTRY_PASSWORD" | docker login -u "$CI_REGISTRY_USER" --password-stdin $CI_REGISTRY
   script:
     - echo "Building frontend Docker image..."
