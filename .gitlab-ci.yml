@@ -126,19 +126,15 @@ deploy_aws_staging:
     - mkdir -p ~/.ssh && chmod 700 ~/.ssh
     # Debug: Check if SSH_PRIVATE_KEY variable is set
     - echo "SSH_PRIVATE_KEY length:" $(echo -n "$SSH_PRIVATE_KEY" | wc -c)
-    - |
-      if [ -z "$SSH_PRIVATE_KEY" ]; then
-        echo "ERROR: SSH_PRIVATE_KEY is empty!"
-        exit 1
-      fi
+    - if [ -z "$SSH_PRIVATE_KEY" ]; then echo "ERROR SSH_PRIVATE_KEY is empty!"; exit 1; fi
     # Decode SSH key
     - echo "$SSH_PRIVATE_KEY" | base64 -d > ~/.ssh/id_rsa
     - chmod 600 ~/.ssh/id_rsa
     # Verify key format
     - echo "Checking SSH key format..."
     - ls -lh ~/.ssh/id_rsa
-    - head -1 ~/.ssh/id_rsa || echo "ERROR: Cannot read key file"
-    - tail -1 ~/.ssh/id_rsa || echo "ERROR: Cannot read key file"
+    - head -1 ~/.ssh/id_rsa || echo "ERROR Cannot read key file"
+    - tail -1 ~/.ssh/id_rsa || echo "ERROR Cannot read key file"
     - wc -l ~/.ssh/id_rsa
     - ssh-keyscan -H "$STAGING_HOST" >> ~/.ssh/known_hosts 2>/dev/null || true
   script:
@@ -193,19 +189,15 @@ deploy_aws_production:
     - mkdir -p ~/.ssh && chmod 700 ~/.ssh
     # Debug: Check if SSH_PRIVATE_KEY variable is set
     - echo "SSH_PRIVATE_KEY length:" $(echo -n "$SSH_PRIVATE_KEY" | wc -c)
-    - |
-      if [ -z "$SSH_PRIVATE_KEY" ]; then
-        echo "ERROR: SSH_PRIVATE_KEY is empty!"
-        exit 1
-      fi
+    - if [ -z "$SSH_PRIVATE_KEY" ]; then echo "ERROR SSH_PRIVATE_KEY is empty!"; exit 1; fi
     # Decode SSH key
     - echo "$SSH_PRIVATE_KEY" | base64 -d > ~/.ssh/id_rsa
     - chmod 600 ~/.ssh/id_rsa
     # Verify key format
     - echo "Checking SSH key format..."
     - ls -lh ~/.ssh/id_rsa
-    - head -1 ~/.ssh/id_rsa || echo "ERROR: Cannot read key file"
-    - tail -1 ~/.ssh/id_rsa || echo "ERROR: Cannot read key file"
+    - head -1 ~/.ssh/id_rsa || echo "ERROR Cannot read key file"
+    - tail -1 ~/.ssh/id_rsa || echo "ERROR Cannot read key file"
     - wc -l ~/.ssh/id_rsa
     - ssh-keyscan -H "$STAGING_HOST" >> ~/.ssh/known_hosts 2>/dev/null || true
   script:
