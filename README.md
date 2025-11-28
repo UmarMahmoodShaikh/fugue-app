@@ -2,7 +2,7 @@
 
 > **“A conversation that leaves no trace.”**  
 > Inspired by the *fugue state* — a temporary amnesic condition — **Fugue** is a secure, in-memory, peer-to-peer chat where **nothing persists**.
-
+ 
 [![Deployed with CI/CD](https://img.shields.io/badge/CI%2FCD-GitHub_Actions-2088FF?logo=github)](https://github.com/umarmahmoodshk/fugue-app/actions)
 [![Docker](https://img.shields.io/badge/Docker-18%2Balpine-2496ED?logo=docker)](https://hub.docker.com/)
 [![Node.js](https://img.shields.io/badge/Node.js-18+-339933?logo=node.js)](https://nodejs.org/)
