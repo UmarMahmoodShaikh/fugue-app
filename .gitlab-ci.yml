@@ -162,9 +162,7 @@ deploy_aws_staging:
     - build_backend_image
     - build_frontend_image
   only:
-    - develop
     - MB
-  when: manual
 
 deploy_aws_production:
   stage: deploy
