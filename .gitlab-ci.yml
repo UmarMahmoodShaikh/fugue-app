@@ -28,12 +28,12 @@ build_backend_image:
   before_script:
     - echo "$CI_REGISTRY_PASSWORD" | docker login -u "$CI_REGISTRY_USER" --password-stdin $CI_REGISTRY
   script:
-    - echo "🐳 Building backend Docker image..."
+    - echo "Building backend Docker image..."
     - cd backend
     - docker build -t $BACKEND_IMAGE:$IMAGE_TAG -t $BACKEND_IMAGE:latest -f Dockerfile.prod .
     - docker push $BACKEND_IMAGE:$IMAGE_TAG
     - docker push $BACKEND_IMAGE:latest
-    - echo "✅ Backend build completed successfully"
+    - echo "Backend build completed successfully"
   only:
     - main
     - develop
@@ -47,12 +47,12 @@ build_frontend_image:
   before_script:
     - echo "$CI_REGISTRY_PASSWORD" | docker login -u "$CI_REGISTRY_USER" --password-stdin $CI_REGISTRY
   script:
-    - echo "🐳 Building frontend Docker image..."
+    - echo "Building frontend Docker image..."
     - cd frontend
     - docker build -t $FRONTEND_IMAGE:$IMAGE_TAG -t $FRONTEND_IMAGE:latest -f Dockerfile.prod .
     - docker push $FRONTEND_IMAGE:$IMAGE_TAG
     - docker push $FRONTEND_IMAGE:latest
-    - echo "✅ Frontend build completed successfully"
+    - echo "Frontend build completed successfully"
   only:
     - main
     - develop
@@ -78,9 +78,9 @@ test_backend:
     - cd backend
     - npm install
   script:
-    - echo "🧪 Running backend tests..."
+    - echo "Running backend tests..."
     - npm test
-    - echo "✅ Backend tests completed"
+    - echo "Backend tests completed"
   only:
     - main
     - develop
@@ -95,9 +95,9 @@ test_frontend:
     - cd frontend
     - npm install
   script:
-    - echo "🧪 Running frontend tests..."
+    - echo "Running frontend tests..."
     - npm test
-    - echo "✅ Frontend tests completed"
+    - echo "Frontend tests completed"
   only:
     - main
     - develop
@@ -122,7 +122,7 @@ deploy_aws_staging:
     - chmod 600 ~/.ssh/id_rsa
     - ssh-keyscan -H "$STAGING_HOST" >> ~/.ssh/known_hosts 2>/dev/null || true
   script:
-    - echo "🚀 Deploying Fugue app to AWS EC2 ($STAGING_HOST)..."
+    - echo "Deploying Fugue app to AWS EC2 ($STAGING_HOST)..."
     
     # Copy docker-compose file to EC2
     - rsync -avz docker-compose.prod.yml "$STAGING_USER@$STAGING_HOST:$DEPLOY_DIR/docker-compose.yml"
@@ -131,24 +131,24 @@ deploy_aws_staging:
     - |
       ssh -o StrictHostKeyChecking=no "$STAGING_USER@$STAGING_HOST" \
         "cd $DEPLOY_DIR && \
-         echo '🔐 Logging into GitLab Container Registry...' && \
+         echo 'Logging into GitLab Container Registry...' && \
          echo '$CI_REGISTRY_PASSWORD' | docker login -u '$CI_REGISTRY_USER' --password-stdin $CI_REGISTRY && \
          export FRONTEND_IMAGE='$FRONTEND_IMAGE:$IMAGE_TAG' && \
          export BACKEND_IMAGE='$BACKEND_IMAGE:$IMAGE_TAG' && \
          export POSTGRES_PASSWORD=\$POSTGRES_PASSWORD && \
          export SESSION_SECRET=\$JWT_SECRET && \
-         echo '📥 Pulling latest Docker images...' && \
+         echo 'Pulling latest Docker images...' && \
          docker pull \$FRONTEND_IMAGE && \
          docker pull \$BACKEND_IMAGE && \
-         echo '🛑 Stopping old containers...' && \
+         echo 'Stopping old containers...' && \
          docker-compose down --timeout 30 || true && \
-         echo '🚀 Starting new containers...' && \
+         echo 'Starting new containers...' && \
          docker-compose up -d && \
-         echo '⏳ Waiting for services to start...' && \
+         echo 'Waiting for services to start...' && \
          sleep 30 && \
-         echo '🔍 Testing backend health...' && \
+         echo 'Testing backend health...' && \
          curl -f http://localhost:8080/health && \
-         echo '✅ AWS EC2 deployment completed!'"
+         echo 'AWS EC2 deployment completed!'"
   environment:
     name: aws-staging
     url: http://$STAGING_HOST
@@ -175,7 +175,7 @@ deploy_aws_production:
     - chmod 600 ~/.ssh/id_rsa
     - ssh-keyscan -H "$STAGING_HOST" >> ~/.ssh/known_hosts 2>/dev/null || true
   script:
-    - echo "🚀 Deploying Fugue app to AWS EC2 Production ($STAGING_HOST)..."
+    - echo "Deploying Fugue app to AWS EC2 Production ($STAGING_HOST)..."
     
     # Copy docker-compose file to EC2
     - rsync -avz docker-compose.prod.yml "$STAGING_USER@$STAGING_HOST:$DEPLOY_DIR/docker-compose.yml"
@@ -184,27 +184,27 @@ deploy_aws_production:
     - |
       ssh -o StrictHostKeyChecking=no "$STAGING_USER@$STAGING_HOST" \
         "cd $DEPLOY_DIR && \
-         echo '🔧 Preparing production deployment...' && \
-         echo '🔐 Logging into GitLab Container Registry...' && \
+         echo 'Preparing production deployment...' && \
+         echo 'Logging into GitLab Container Registry...' && \
          echo '$CI_REGISTRY_PASSWORD' | docker login -u '$CI_REGISTRY_USER' --password-stdin $CI_REGISTRY && \
          export FRONTEND_IMAGE='$FRONTEND_IMAGE:$IMAGE_TAG' && \
          export BACKEND_IMAGE='$BACKEND_IMAGE:$IMAGE_TAG' && \
          export POSTGRES_PASSWORD=\$POSTGRES_PASSWORD && \
          export SESSION_SECRET=\$JWT_SECRET && \
-         echo '📥 Pulling verified Docker images...' && \
+         echo 'Pulling verified Docker images...' && \
          docker pull \$FRONTEND_IMAGE && \
          docker pull \$BACKEND_IMAGE && \
-         echo '🛑 Gracefully stopping containers...' && \
+         echo 'Gracefully stopping containers...' && \
          docker-compose down --timeout 30 || true && \
-         echo '🧹 Cleaning old Docker images...' && \
+         echo 'Cleaning old Docker images...' && \
          docker image prune -f && \
-         echo '🚀 Starting production containers...' && \
+         echo 'Starting production containers...' && \
          docker-compose up -d && \
-         echo '⏳ Waiting for services to be ready...' && \
+         echo 'Waiting for services to be ready...' && \
          sleep 45 && \
-         echo '🔍 Verifying production deployment...' && \
+         echo 'Verifying production deployment...' && \
          curl -f http://localhost:8080/health && \
-         echo '🎉 AWS EC2 production deployment completed successfully!'"
+         echo 'AWS EC2 production deployment completed successfully!'"
   environment:
     name: aws-production
     url: http://$STAGING_HOST
@@ -213,4 +213,3 @@ deploy_aws_production:
     - build_frontend_image
   only:
     - main
-  when: manual
