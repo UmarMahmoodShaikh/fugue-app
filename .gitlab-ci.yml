@@ -150,13 +150,17 @@ deploy_aws_staging:
          docker pull \$FRONTEND_IMAGE && \
          docker pull \$BACKEND_IMAGE && \
          echo 'Stopping old containers...' && \
-         docker-compose down --timeout 30 || true && \
+         docker compose -f docker-compose.prod.yml down --timeout 30 || true && \
          echo 'Starting new containers...' && \
-         docker-compose up -d && \
+         docker compose -f docker-compose.prod.yml up -d && \
          echo 'Waiting for services to start...' && \
-         sleep 30 && \
-         echo 'Testing backend health...' && \
-         curl -f http://localhost:$BACKEND_PORT/health && \
+         sleep 10 && \
+         echo 'Checking if containers are running...' && \
+         docker compose -f docker-compose.prod.yml ps && \
+         echo 'Waiting for backend to be ready...' && \
+         sleep 20 && \
+         echo 'Testing backend health (with retries)...' && \
+         for i in 1 2 3 4 5; do curl -f http://localhost:$BACKEND_PORT/health && break || sleep 5; done && \
          echo 'AWS EC2 deployment completed!'"
   environment:
     name: aws-staging
@@ -202,15 +206,19 @@ deploy_aws_production:
          docker pull \$FRONTEND_IMAGE && \
          docker pull \$BACKEND_IMAGE && \
          echo 'Gracefully stopping containers...' && \
-         docker-compose down --timeout 30 || true && \
+         docker compose -f docker-compose.prod.yml down --timeout 30 || true && \
          echo 'Cleaning old Docker images...' && \
          docker image prune -f && \
          echo 'Starting production containers...' && \
-         docker-compose up -d && \
+         docker compose -f docker-compose.prod.yml up -d && \
          echo 'Waiting for services to be ready...' && \
-         sleep 45 && \
-         echo 'Verifying production deployment...' && \
-         curl -f http://localhost:$BACKEND_PORT/health && \
+         sleep 15 && \
+         echo 'Checking if containers are running...' && \
+         docker compose -f docker-compose.prod.yml ps && \
+         echo 'Waiting for backend to be ready...' && \
+         sleep 30 && \
+         echo 'Verifying production deployment (with retries)...' && \
+         for i in 1 2 3 4 5; do curl -f http://localhost:$BACKEND_PORT/health && break || sleep 10; done && \
          echo 'AWS EC2 production deployment completed successfully!'"
   environment:
     name: aws-production
