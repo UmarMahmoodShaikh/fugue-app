@@ -135,24 +135,20 @@ deploy_aws_staging:
     
     # Create .env file locally with secrets from GitLab CI/CD Variables
     - |
-      cat > .env << EOF
-      # Database Configuration
+      cat > .env <<EOF
       POSTGRES_DB=fugue_app
       POSTGRES_USER=fugue_user
       POSTGRES_PASSWORD=$POSTGRES_PASSWORD
-      
-      # Backend Configuration
       BACKEND_PORT=8080
       SESSION_SECRET=$SESSION_SECRET
       NODE_ENV=production
-      
-      # Frontend Configuration
       FRONTEND_PORT=80
       EOF
     
     # Debug: Show .env file content (masked values)
-    - echo "Generated .env file (first 3 lines):"
-    - head -3 .env
+    - echo "Generated .env file:"
+    - cat .env
+    - echo "---"
     - echo "POSTGRES_PASSWORD length:" $(grep POSTGRES_PASSWORD .env | cut -d'=' -f2 | wc -c)
     - echo "SESSION_SECRET length:" $(grep SESSION_SECRET .env | cut -d'=' -f2 | wc -c)
     
