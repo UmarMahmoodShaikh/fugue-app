@@ -134,12 +134,14 @@ deploy_aws_staging:
     - echo "Deploying Fugue app to AWS EC2 ($STAGING_HOST)..."
     
     # Copy docker-compose file to EC2
-    - rsync -avz docker-compose.prod.yml "$STAGING_USER@$STAGING_HOST:$DEPLOY_DIR/docker-compose.yml"
+    - rsync -avz docker-compose.prod.yml "$STAGING_USER@$STAGING_HOST:$DEPLOY_DIR/docker-compose.prod.yml"
     
     # Deploy to AWS EC2 instance
     - |
       ssh -o StrictHostKeyChecking=no "$STAGING_USER@$STAGING_HOST" \
         "cd $DEPLOY_DIR && \
+         echo 'Installing/updating docker-compose if needed...' && \
+         (which docker-compose || (sudo curl -L \"https://github.com/docker/compose/releases/latest/download/docker-compose-\$(uname -s)-\$(uname -m)\" -o /usr/local/bin/docker-compose && sudo chmod +x /usr/local/bin/docker-compose)) && \
          echo 'Logging into GitLab Container Registry...' && \
          echo '$CI_REGISTRY_PASSWORD' | docker login -u '$CI_REGISTRY_USER' --password-stdin $CI_REGISTRY && \
          export FRONTEND_IMAGE='$FRONTEND_IMAGE:$IMAGE_TAG' && \
@@ -189,13 +191,15 @@ deploy_aws_production:
     - echo "Deploying Fugue app to AWS EC2 Production ($STAGING_HOST)..."
     
     # Copy docker-compose file to EC2
-    - rsync -avz docker-compose.prod.yml "$STAGING_USER@$STAGING_HOST:$DEPLOY_DIR/docker-compose.yml"
+    - rsync -avz docker-compose.prod.yml "$STAGING_USER@$STAGING_HOST:$DEPLOY_DIR/docker-compose.prod.yml"
     
     # Deploy to AWS EC2 production
     - |
       ssh -o StrictHostKeyChecking=no "$STAGING_USER@$STAGING_HOST" \
         "cd $DEPLOY_DIR && \
          echo 'Preparing production deployment...' && \
+         echo 'Installing/updating docker-compose if needed...' && \
+         (which docker-compose || (sudo curl -L \"https://github.com/docker/compose/releases/latest/download/docker-compose-\$(uname -s)-\$(uname -m)\" -o /usr/local/bin/docker-compose && sudo chmod +x /usr/local/bin/docker-compose)) && \
          echo 'Logging into GitLab Container Registry...' && \
          echo '$CI_REGISTRY_PASSWORD' | docker login -u '$CI_REGISTRY_USER' --password-stdin $CI_REGISTRY && \
          export FRONTEND_IMAGE='$FRONTEND_IMAGE:$IMAGE_TAG' && \
