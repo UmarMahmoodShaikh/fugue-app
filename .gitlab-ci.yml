@@ -172,7 +172,9 @@ deploy_aws_staging:
          docker pull \$BACKEND_IMAGE && \
          echo 'Stopping old containers...' && \
          docker-compose -f docker-compose.prod.yml down --timeout 30 || true && \
-         echo 'Starting new containers...' && \
+         echo 'Removing old database volume to reset credentials...' && \
+         docker volume rm fugue-app_postgres_data 2>/dev/null || echo 'No old volume to remove' && \
+         echo 'Starting new containers with fresh database...' && \
          docker-compose -f docker-compose.prod.yml up -d && \
          echo 'Waiting for services to start...' && \
          sleep 10 && \
