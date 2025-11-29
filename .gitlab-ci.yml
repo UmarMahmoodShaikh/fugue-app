@@ -145,7 +145,7 @@ deploy_aws_staging:
          export FRONTEND_IMAGE='$FRONTEND_IMAGE:$IMAGE_TAG' && \
          export BACKEND_IMAGE='$BACKEND_IMAGE:$IMAGE_TAG' && \
          export POSTGRES_PASSWORD=\$POSTGRES_PASSWORD && \
-         export SESSION_SECRET=\$JWT_SECRET && \
+         export SESSION_SECRET=\$SESSION_SECRET && \
          echo 'Pulling latest Docker images...' && \
          docker pull \$FRONTEND_IMAGE && \
          docker pull \$BACKEND_IMAGE && \
@@ -197,7 +197,7 @@ deploy_aws_production:
          export FRONTEND_IMAGE='$FRONTEND_IMAGE:$IMAGE_TAG' && \
          export BACKEND_IMAGE='$BACKEND_IMAGE:$IMAGE_TAG' && \
          export POSTGRES_PASSWORD=\$POSTGRES_PASSWORD && \
-         export SESSION_SECRET=\$JWT_SECRET && \
+         export SESSION_SECRET=\$SESSION_SECRET && \
          echo 'Pulling verified Docker images...' && \
          docker pull \$FRONTEND_IMAGE && \
          docker pull \$BACKEND_IMAGE && \
