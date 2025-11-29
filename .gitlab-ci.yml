@@ -150,13 +150,13 @@ deploy_aws_staging:
          docker pull \$FRONTEND_IMAGE && \
          docker pull \$BACKEND_IMAGE && \
          echo 'Stopping old containers...' && \
-         docker compose -f docker-compose.prod.yml down --timeout 30 || true && \
+         docker-compose -f docker-compose.prod.yml down --timeout 30 || true && \
          echo 'Starting new containers...' && \
-         docker compose -f docker-compose.prod.yml up -d && \
+         docker-compose -f docker-compose.prod.yml up -d && \
          echo 'Waiting for services to start...' && \
          sleep 10 && \
          echo 'Checking if containers are running...' && \
-         docker compose -f docker-compose.prod.yml ps && \
+         docker-compose -f docker-compose.prod.yml ps && \
          echo 'Waiting for backend to be ready...' && \
          sleep 20 && \
          echo 'Testing backend health (with retries)...' && \
@@ -206,15 +206,15 @@ deploy_aws_production:
          docker pull \$FRONTEND_IMAGE && \
          docker pull \$BACKEND_IMAGE && \
          echo 'Gracefully stopping containers...' && \
-         docker compose -f docker-compose.prod.yml down --timeout 30 || true && \
+         docker-compose -f docker-compose.prod.yml down --timeout 30 || true && \
          echo 'Cleaning old Docker images...' && \
          docker image prune -f && \
          echo 'Starting production containers...' && \
-         docker compose -f docker-compose.prod.yml up -d && \
+         docker-compose -f docker-compose.prod.yml up -d && \
          echo 'Waiting for services to be ready...' && \
          sleep 15 && \
          echo 'Checking if containers are running...' && \
-         docker compose -f docker-compose.prod.yml ps && \
+         docker-compose -f docker-compose.prod.yml ps && \
          echo 'Waiting for backend to be ready...' && \
          sleep 30 && \
          echo 'Verifying production deployment (with retries)...' && \
