@@ -56,41 +56,52 @@
 ### 1. Install dependencies
 ```bash
 # Clone the repo
-git clone https://github.com/umarmahmoodshk/fugue-app.git
+git clone https://github.com/UmarMahmoodShaikh/fugue-app.git
 cd fugue-app
 
 # Backend deps
+cd backend
 npm install
+cd ..
 
 # Frontend deps
-npm install --prefix client
+cd frontend
+npm install
+cd ..
 ```
 
-### 2. Configure Postgres
-```bash
-# Create the local database (optional if you supply DATABASE_URL)
-createdb fugue_app
-```
-Create a `.env` in the project root if you want to override defaults:
+### 2. Configure Environment
+Create a `.env` file in the project root:
 ```env
-DATABASE_URL=postgres://user:password@localhost:5432/fugue_app
+# Database Configuration
+POSTGRES_DB=fugue_app
+POSTGRES_USER=fugue_user
+POSTGRES_PASSWORD=your-password
+DB_PORT=5433
+
+# Backend Configuration
+BACKEND_PORT=8080
 SESSION_SECRET=super-secret
+NODE_ENV=development
+
+# Frontend Configuration
+FRONTEND_PORT=5173
+VITE_API_URL=http://localhost:8080
+VITE_WS_URL=ws://localhost:8080
 ```
 
-### 3. Run the app
+### 3. Run with Docker Compose (Recommended)
 ```bash
-# Start the backend (ensures schema automatically)
-npm run dev
+# Start all services (database, backend, frontend)
+docker-compose -f docker-compose.dev.yml up -d
 
-# Option A: run the Vite dev server (hot reload)
-npm run dev --prefix client
-#   visit http://localhost:5173
+# View logs
+docker-compose -f docker-compose.dev.yml logs -f
 
-# Option B: build the client once and let Express serve it
-npm run build:client
-#   reload http://localhost:8080
+# Access the app
+# Frontend: http://localhost:5173
+# Backend API: http://localhost:8080
 ```
-Sign up with a username/password, pick interests, then start matching. Use the **Leave** button to exit a chat without logging out.
 
 ---
 
@@ -165,15 +176,28 @@ Automated deployment pipeline with GitLab CI/CD:
 
 ```
 fugue-app/
-├── client/               # React + Vite frontend
-│   ├── src/              # Components, hooks, styles
-│   └── vite.config.js    # Dev server config (host: 0.0.0.0)
-├── index.js              # Node.js + WebSocket backend
-├── package.json          # Backend dependencies
-├── Dockerfile.dev        # Dev container (backend only)
-├── Dockerfile.prod       # Production container (full app)
-├── .gitignore
-└── .github/workflows/ci.yml
+├── backend/              # Node.js + Express + WebSocket backend
+│   ├── db.js             # PostgreSQL connection and schema
+│   ├── index.js          # Main server entry point
+│   ├── package.json      # Backend dependencies
+│   ├── Dockerfile.dev    # Development container
+│   ├── Dockerfile.prod   # Production container
+│   └── test/             # Backend tests
+├── frontend/             # React + Vite frontend
+│   ├── src/              # React components, hooks, styles
+│   ├── public/           # Static assets
+│   ├── index.html        # HTML entry point
+│   ├── vite.config.js    # Vite configuration
+│   ├── package.json      # Frontend dependencies
+│   ├── Dockerfile.dev    # Development container
+│   ├── Dockerfile.prod   # Production container with Nginx
+│   ├── nginx.conf        # Nginx reverse proxy config
+│   └── test/             # Frontend tests
+├── docker-compose.dev.yml   # Development orchestration
+├── docker-compose.prod.yml  # Production orchestration
+├── .gitlab-ci.yml           # GitLab CI/CD pipeline
+├── .env                     # Environment variables (not in git)
+└── README.md
 ```
 
 ---
