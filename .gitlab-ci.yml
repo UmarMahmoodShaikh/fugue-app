@@ -133,6 +133,9 @@ deploy_aws_staging:
   script:
     - echo "Deploying Fugue app to AWS EC2 ($STAGING_HOST)..."
     
+    # Create deployment directory on EC2 if it doesn't exist
+    - ssh -o StrictHostKeyChecking=no "$STAGING_USER@$STAGING_HOST" "mkdir -p $DEPLOY_DIR"
+    
     # Create .env file locally with secrets from GitLab CI/CD Variables
     - |
       cat > .env <<EOF
@@ -206,6 +209,9 @@ deploy_aws_production:
     - ssh-keyscan -H "$STAGING_HOST" >> ~/.ssh/known_hosts 2>/dev/null || true
   script:
     - echo "Deploying Fugue app to AWS EC2 Production ($STAGING_HOST)..."
+    
+    # Create deployment directory on EC2 if it doesn't exist
+    - ssh -o StrictHostKeyChecking=no "$STAGING_USER@$STAGING_HOST" "mkdir -p $DEPLOY_DIR"
     
     # Create .env file locally with secrets from GitLab CI/CD Variables
     - |
